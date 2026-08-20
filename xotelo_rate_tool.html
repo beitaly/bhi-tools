@@ -7,12 +7,12 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--blue:#1F4E79;--orange:#D4613D;--ink:#1a1a1a;--mid:#888;--border:#e4e4e4;--bg:#F0EDE8;--surface:#fff;--grey:#F5F5F5}
+:root{--blue:#1F4E79;--orange:#D4613D;--ink:#1a1a1a;--mid:#888;--border:#e4e4e4;--bg:#F0EDE8;--surface:#fff;--grey:#F5F5F5;--green:#2e7d32;--red:#c62828}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:2rem}
-.topbar{max-width:1200px;margin:0 auto 1.5rem;display:flex;align-items:baseline;gap:1rem}
+.topbar{max-width:1300px;margin:0 auto 1.5rem;display:flex;align-items:baseline;gap:1rem}
 .topbar-brand{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid)}
 .topbar h1{font-size:1rem;font-weight:500;color:var(--blue)}
-.panel{max-width:1200px;margin:0 auto;background:var(--surface);border-radius:3px;box-shadow:0 2px 24px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04);overflow:hidden}
+.panel{max-width:1300px;margin:0 auto;background:var(--surface);border-radius:3px;box-shadow:0 2px 24px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04);overflow:hidden;margin-bottom:1.5rem}
 .input-strip{background:var(--blue);padding:1.1rem 1.5rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end}
 .field{display:flex;flex-direction:column;gap:.3rem}
 .field label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5)}
@@ -21,12 +21,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
 .field select option{background:var(--blue);color:#fff}
 .field-full{width:100%}
 .field-full input,.field-full textarea{width:100%}
-textarea#hotelList{resize:vertical;min-height:64px;line-height:1.7}
+textarea#hotelList{resize:vertical;min-height:56px;line-height:1.7}
 .field-narrow input,.field-narrow select{width:100px}
-.run-btn{background:var(--orange);border:none;border-radius:3px;color:#fff;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;padding:.5rem 1.25rem;cursor:pointer;align-self:flex-end}
-.run-btn:disabled{opacity:.4;cursor:default}
-.export-btn{background:transparent;border:1px solid rgba(255,255,255,.25);border-radius:3px;color:rgba(255,255,255,.7);font-family:'DM Mono',monospace;font-size:.76rem;padding:.5rem .9rem;cursor:pointer;align-self:flex-end}
-.export-btn:disabled{opacity:.3;cursor:default}
+.field-wide input{width:320px}
+.btn{border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;padding:.5rem 1.1rem;cursor:pointer;align-self:flex-end;transition:opacity .15s;white-space:nowrap}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.8)}
+.btn-ghost.connected{border-color:#4CAF50;color:#4CAF50}
+.btn:disabled{opacity:.35;cursor:default}
+.divider{width:1px;height:36px;background:rgba(255,255,255,.15);align-self:flex-end}
 .status-bar{background:#f8f7f5;border-bottom:1px solid var(--border);padding:.5rem 1.5rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--mid);min-height:32px;display:flex;align-items:center;gap:.75rem}
 .status-dot{width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0}
 .status-dot.active{background:#4CAF50;animation:pulse 1.5s infinite}
@@ -35,7 +38,6 @@ textarea#hotelList{resize:vertical;min-height:64px;line-height:1.7}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .results-area{padding:1.25rem 1.5rem;min-height:200px}
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;gap:.5rem;color:var(--mid)}
-.empty-icon{font-size:1.8rem;opacity:.3}
 .empty-text{font-size:.8rem;font-family:'DM Mono',monospace}
 .hotel-card{border:1px solid var(--border);border-radius:3px;margin-bottom:1rem;overflow:hidden}
 .hotel-card-header{background:var(--grey);padding:.65rem 1rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border)}
@@ -53,13 +55,18 @@ table.rate-table tr:last-child td{border-bottom:none}
 .cell-val{display:inline-block;padding:.18rem .45rem;border-radius:2px;font-weight:500}
 .cell-empty{color:#ccc}
 .cell-low{font-size:9px;color:var(--mid);font-family:'DM Mono',monospace;display:block;margin-top:1px}
+.cell-netto{font-size:9px;color:var(--blue);font-family:'DM Mono',monospace;display:block;margin-top:2px;font-weight:500}
+.cell-gap-ok{color:var(--green);font-size:9px;font-family:'DM Mono',monospace;display:block;margin-top:1px}
+.cell-gap-warn{color:var(--red);font-size:9px;font-family:'DM Mono',monospace;display:block;margin-top:1px}
 .summary-row td{background:#f0f5fa!important;font-weight:500;border-top:1px solid #c8d9ea;border-bottom:none!important;color:var(--blue)}
 .legend{display:flex;align-items:center;gap:.35rem;padding:.75rem 1rem;border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:9px;color:var(--mid);flex-wrap:wrap}
 .legend-swatch{width:14px;height:10px;border-radius:1px}
 .section-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:1.25rem 0 .5rem}
-.consolidated{border:1px solid var(--border);border-radius:3px;margin-top:.5rem;overflow:hidden}
-.con-header{background:var(--blue);color:#fff;padding:.6rem 1rem;font-size:.82rem;font-weight:500;display:flex;align-items:center;gap:.5rem}
-.badge{font-family:'DM Mono',monospace;font-size:9px;background:rgba(255,255,255,.15);padding:.1rem .45rem;border-radius:10px}
+/* Sheet panel */
+.sheet-strip{background:#1a3d5c;padding:.8rem 1.5rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;border-top:1px solid rgba(255,255,255,.08)}
+.tab-chips{display:flex;flex-wrap:wrap;gap:.4rem;align-self:flex-end}
+.tab-chip{font-family:'DM Mono',monospace;font-size:9px;padding:.25rem .6rem;border:1px solid rgba(255,255,255,.2);border-radius:20px;color:rgba(255,255,255,.6);cursor:pointer;transition:all .12s;user-select:none}
+.tab-chip.active{background:var(--orange);border-color:var(--orange);color:#fff}
 </style>
 </head>
 <body>
@@ -69,14 +76,18 @@ table.rate-table tr:last-child td{border-bottom:none}
 </div>
 <div class="panel">
   <div class="input-strip">
-    <div class="field field-full">
+    <div class="field field-wide">
       <label>Proxy URL (Railway)</label>
       <input type="text" id="proxyUrl" value="https://web-production-57cc2.up.railway.app">
     </div>
-    <div class="field field-full">
-      <label>Hotels - one per line: Hotel Name | Location</label>
-      <textarea id="hotelList" placeholder="Grand Hotel Tremezzo | Lake Como"></textarea>
+    <div class="divider"></div>
+    <div class="field field-wide">
+      <label>Google Sheet URL (optional)</label>
+      <input type="text" id="sheetUrl" placeholder="Paste Google Sheets share link">
     </div>
+    <button class="btn btn-ghost" id="connectBtn">Connect Google</button>
+    <button class="btn btn-ghost" id="loadSheetBtn" disabled>Load Sheet</button>
+    <div class="divider"></div>
     <div class="field field-narrow">
       <label>Year</label>
       <input type="number" id="year" value="2026" min="2024" max="2030">
@@ -93,16 +104,31 @@ table.rate-table tr:last-child td{border-bottom:none}
         <option value="USD">USD</option>
       </select>
     </div>
-    <button class="run-btn" id="runBtn">Run</button>
-    <button class="export-btn" id="exportBtn" disabled>CSV</button>
+    <button class="btn btn-orange" id="runBtn">Run</button>
+    <button class="btn btn-ghost" id="exportBtn" disabled>CSV</button>
+  </div>
+  <div class="sheet-strip" id="sheetStrip" style="display:none">
+    <div class="field">
+      <label>Destination tabs — select to load hotels</label>
+      <div class="tab-chips" id="tabChips"></div>
+    </div>
+    <div class="field field-full">
+      <label>Hotels loaded from sheet</label>
+      <textarea id="hotelList" placeholder="Hotels will appear here, or type manually: Hotel Name | Location"></textarea>
+    </div>
+  </div>
+  <div class="input-strip" id="manualStrip" style="background:#1a3d5c">
+    <div class="field field-full">
+      <label>Hotels - one per line: Hotel Name | Location (manual entry)</label>
+      <textarea id="hotelListManual" placeholder="Grand Hotel Tremezzo | Lake Como&#10;Hotel Metropole | Venice"></textarea>
+    </div>
   </div>
   <div class="status-bar">
     <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Enter hotels above and click Run</span>
+    <span id="statusText">Enter hotels and click Run</span>
   </div>
   <div class="results-area" id="resultsArea">
     <div class="empty-state">
-      <div class="empty-icon">+</div>
       <div class="empty-text">Rates will appear here</div>
     </div>
   </div>
@@ -112,10 +138,104 @@ table.rate-table tr:last-child td{border-bottom:none}
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var SAMPLE_DAYS = [1, 8, 15, 22];
 var allData = {};
+var googleToken = null;
+var currentSheetId = null;
+
+// ── ON LOAD: check for OAuth token in URL fragment ──
+window.addEventListener('load', function() {
+  var hash = window.location.hash;
+  if (hash.indexOf('token=') !== -1) {
+    googleToken = hash.split('token=')[1];
+    window.location.hash = '';
+    document.getElementById('connectBtn').textContent = 'Connected';
+    document.getElementById('connectBtn').classList.add('connected');
+    document.getElementById('loadSheetBtn').disabled = false;
+    setStatus('Google connected', 'done');
+  }
+});
 
 document.getElementById('runBtn').addEventListener('click', runFetch);
 document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
+document.getElementById('connectBtn').addEventListener('click', function() {
+  if (googleToken) return;
+  var proxy = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  var origin = encodeURIComponent(window.location.href.split('#')[0]);
+  window.location.href = proxy + '/auth/login?origin=' + origin;
+});
+
+document.getElementById('loadSheetBtn').addEventListener('click', loadSheet);
+
+// ── SHEET ID FROM URL ──
+function extractSheetId(url) {
+  var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+// ── LOAD SHEET TABS ──
+async function loadSheet() {
+  var sheetUrl = document.getElementById('sheetUrl').value.trim();
+  if (!sheetUrl) { setStatus('Paste a Google Sheets URL first', 'error'); return; }
+  var sheetId = extractSheetId(sheetUrl);
+  if (!sheetId) { setStatus('Could not parse sheet ID from URL', 'error'); return; }
+  currentSheetId = sheetId;
+
+  var proxy = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  setStatus('Loading sheet tabs...', 'active');
+  try {
+    var r = await fetch(proxy + '/sheet/tabs?sheet_id=' + sheetId + '&token=' + googleToken);
+    var j = await r.json();
+    if (j.error) throw new Error(j.error);
+    renderTabChips(j.tabs);
+    document.getElementById('sheetStrip').style.display = '';
+    document.getElementById('manualStrip').style.display = 'none';
+    setStatus('Sheet loaded - select a destination tab', 'done');
+  } catch(e) {
+    setStatus('Sheet error: ' + e.message, 'error');
+  }
+}
+
+// ── RENDER TAB CHIPS ──
+function renderTabChips(tabs) {
+  var container = document.getElementById('tabChips');
+  container.innerHTML = '';
+  // Skip non-destination tabs
+  var skip = ['Prorata','Template','Summary','SUMMARY','Instructions'];
+  tabs.forEach(function(tab) {
+    if (skip.indexOf(tab) !== -1) return;
+    var chip = document.createElement('span');
+    chip.className = 'tab-chip';
+    chip.textContent = tab;
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('.tab-chip').forEach(function(c){ c.classList.remove('active'); });
+      chip.classList.add('active');
+      loadTabHotels(tab);
+    });
+    container.appendChild(chip);
+  });
+}
+
+// ── LOAD HOTELS FROM TAB ──
+async function loadTabHotels(tab) {
+  var proxy = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  setStatus('Loading hotels from ' + tab + '...', 'active');
+  try {
+    var r = await fetch(proxy + '/sheet?sheet_id=' + currentSheetId + '&tab=' + encodeURIComponent(tab) + '&token=' + googleToken);
+    var j = await r.json();
+    if (j.error) throw new Error(j.error);
+    // Filter out header-like rows and blank entries
+    var hotels = j.hotels.filter(function(h) {
+      return h && h.length > 2 && h.toLowerCase().indexOf('hotel') !== -1 ||
+             h.length > 3 && !/^(notti|nights|hotel|property|name|dest)/i.test(h);
+    });
+    document.getElementById('hotelList').value = hotels.map(function(h){ return h + ' | Italy'; }).join('\n');
+    setStatus('Loaded ' + hotels.length + ' hotels from ' + tab, 'done');
+  } catch(e) {
+    setStatus('Error loading tab: ' + e.message, 'error');
+  }
+}
+
+// ── HELPERS ──
 function heatColour(t) {
   if (t === null) return { bg: 'transparent', fg: '#ccc' };
   var stops = [[183,225,161],[255,240,160],[255,178,80]];
@@ -160,7 +280,10 @@ function parseNights() {
 }
 
 function parseHotels() {
-  return document.getElementById('hotelList').value
+  var src = document.getElementById('sheetStrip').style.display !== 'none'
+    ? document.getElementById('hotelList').value
+    : document.getElementById('hotelListManual').value;
+  return src
     .split('\n')
     .map(function(s){ return s.trim(); })
     .filter(Boolean)
@@ -183,6 +306,7 @@ function currencySymbol() {
   return c === 'EUR' ? '\u20AC' : c === 'GBP' ? '\u00A3' : '$';
 }
 
+// ── FETCH ──
 async function fetchSnapshot(hotelName, location, cin, cout, currency) {
   var proxyBase = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
   var query = location ? hotelName + ' ' + location : hotelName;
@@ -193,16 +317,12 @@ async function fetchSnapshot(hotelName, location, cin, cout, currency) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     var j = await r.json();
     if (j.error) throw new Error(String(j.error));
-
-    // Case 1: single property detail
     if (j.name && j.rate_per_night) {
       var rate = j.rate_per_night.extracted_lowest || j.rate_per_night.extracted_before_taxes_fees || null;
       return { price: rate ? Math.round(rate) : null, hotelName: j.name,
         rating: j.overall_rating || null, reviews: j.reviews || null,
         stars: j.hotel_class ? String(j.hotel_class).replace(/[^0-9]/g,'') : null };
     }
-
-    // Case 2: properties list
     var props = j.properties || [];
     if (props.length) {
       var lc = hotelName.toLowerCase();
@@ -283,6 +403,7 @@ async function runFetch() {
   setStatus('Done - ' + hotels.length + ' hotel(s), ' + total + ' snapshots', 'done');
 }
 
+// ── RENDER ──
 function renderResults(results, nightArr, currency, year) {
   var sym = currencySymbol();
   var area = document.getElementById('resultsArea');
@@ -292,7 +413,7 @@ function renderResults(results, nightArr, currency, year) {
 
   var lbl = document.createElement('div');
   lbl.className = 'section-label';
-  lbl.textContent = 'Per-Hotel Rates - ' + year + ' - Per-night room rate (divide by 2 for pp netto)';
+  lbl.textContent = 'Per-Hotel Market Rates - ' + year + ' - Per-night room rate (divide by 2 for pp netto)';
   area.appendChild(lbl);
 
   for (var ki = 0; ki < keys.length; ki++) {
@@ -376,68 +497,9 @@ function renderResults(results, nightArr, currency, year) {
 
     var leg = document.createElement('div');
     leg.className = 'legend';
-    leg.innerHTML = 'Heatmap: <span class="legend-swatch" style="background:#b7e1a1"></span>Low <span class="legend-swatch" style="background:#fff0a0"></span>Mid <span class="legend-swatch" style="background:#ffb250"></span>High - Avg of 4 snapshots (1st 8th 15th 22nd) - divide by 2 for pp';
+    leg.innerHTML = 'Market rate heatmap: <span class="legend-swatch" style="background:#b7e1a1"></span>Low <span class="legend-swatch" style="background:#fff0a0"></span>Mid <span class="legend-swatch" style="background:#ffb250"></span>High - Avg of 4 snapshots (1st 8th 15th 22nd) - divide by 2 for pp netto';
     card.appendChild(leg);
     area.appendChild(card);
-  }
-
-  if (keys.length > 1) {
-    var conLbl = document.createElement('div');
-    conLbl.className = 'section-label';
-    conLbl.textContent = 'Consolidated - ' + nightArr[0] + ' nts';
-    area.appendChild(conLbl);
-
-    var con = document.createElement('div');
-    con.className = 'consolidated';
-    var conH = document.createElement('div');
-    conH.className = 'con-header';
-    conH.innerHTML = 'All Hotels - ' + nightArr[0] + ' nights <span class="badge">' + keys.length + '</span>';
-    con.appendChild(conH);
-
-    var conWrap = document.createElement('div');
-    conWrap.className = 'rate-table-wrap';
-    var conTable = document.createElement('table');
-    conTable.className = 'rate-table';
-    var conHead = '<thead><tr><th>Hotel</th>';
-    for (var mi2 = 0; mi2 < MONTHS.length; mi2++) conHead += '<th>' + MONTHS[mi2] + '</th>';
-    conHead += '<th>Min/nt</th></tr></thead>';
-    conTable.innerHTML = conHead;
-
-    var allV = [];
-    var rows = keys.map(function(k) {
-      var nn = nightArr[0];
-      return results[k].ratesByNights[nn].map(function(o){ return o && o.avg !== null ? Math.round(o.avg/nn) : null; });
-    });
-    rows.forEach(function(row){ row.forEach(function(v){ if(v) allV.push(v); }); });
-    var gMn = allV.length ? Math.min.apply(null,allV) : 0;
-    var gMx = allV.length ? Math.max.apply(null,allV) : 1;
-    var gSp = gMx - gMn || 1;
-
-    var conBody = document.createElement('tbody');
-    for (var ki2 = 0; ki2 < keys.length; ki2++) {
-      var k2 = keys[ki2];
-      var row2 = rows[ki2];
-      var v2 = row2.filter(function(v){ return v !== null; });
-      var tr2 = document.createElement('tr');
-      var c2s = '<td>' + (results[k2].info.name || k2) + '</td>';
-      for (var ri = 0; ri < row2.length; ri++) {
-        var rv = row2[ri];
-        if (rv === null) { c2s += '<td><span class="cell-val cell-empty">-</span></td>'; }
-        else {
-          var t2 = (rv - gMn) / gSp;
-          var col = heatColour(t2);
-          c2s += '<td><span class="cell-val" style="background:' + col.bg + ';color:' + col.fg + '">' + sym + rv + '</span></td>';
-        }
-      }
-      var mv2 = v2.length ? Math.min.apply(null,v2) : null;
-      c2s += '<td style="color:var(--blue);font-weight:500">' + (mv2 ? sym+mv2 : '-') + '</td>';
-      tr2.innerHTML = c2s;
-      conBody.appendChild(tr2);
-    }
-    conTable.appendChild(conBody);
-    conWrap.appendChild(conTable);
-    con.appendChild(conWrap);
-    area.appendChild(con);
   }
 }
 
