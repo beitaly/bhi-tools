@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BHI · Tools &amp; Automations</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:      #1F4E79;
+    --navy-mid:  #2A6099;
+    --orange:    #D4613D;
+    --lt-orange: #FAEAE3;
+    --sand:      #F0EDE8;
+    --white:     #FFFFFF;
+    --ink:       #1a1a1a;
+    --mid:       #5a5a5a;
+    --faint:     #e8e4df;
+    --green:     #2E7D32;
+    --amber:     #E65100;
+    --red:       #B71C1C;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--sand);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ──────────────────────────────── */
+  header {
+    background: var(--navy);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    background: var(--orange);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    letter-spacing: -0.04em;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: 0.01em;
+  }
+
+  .logo-text span {
+    color: rgba(255,255,255,0.4);
+    font-weight: 300;
+    margin-left: 0.3rem;
+  }
+
+  .header-right {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── HERO ────────────────────────────────── */
+  .hero {
+    background: var(--navy);
+    padding: 2.5rem 2rem 3rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .hero h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 300;
+    color: #fff;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    max-width: 560px;
+  }
+
+  .hero h1 strong {
+    font-weight: 600;
+    color: var(--orange);
+  }
+
+  .hero p {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.45);
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  /* ── SECTION LABEL ───────────────────────── */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mid);
+    padding: 2rem 2rem 0.75rem;
+    border-top: 1px solid var(--faint);
+    margin-top: 0.5rem;
+  }
+
+  .section-label:first-of-type {
+    border-top: none;
+    margin-top: 0;
+  }
+
+  /* ── GRID ────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--faint);
+    border-top: 1px solid var(--faint);
+    border-bottom: 1px solid var(--faint);
+  }
+
+  /* ── CARD ────────────────────────────────── */
+  .card {
+    background: var(--white);
+    padding: 1.5rem 1.75rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.12s;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .card:hover { background: #fafafa; }
+  .card:hover .card-cta { color: var(--orange); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .icon-blue   { background: #EBF3FB; }
+  .icon-orange { background: var(--lt-orange); }
+  .icon-green  { background: #E8F5E9; }
+  .icon-purple { background: #F3E5F5; }
+
+  .status-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .status-live   { background: #E8F5E9; color: var(--green); }
+  .status-beta   { background: #FFF3E0; color: var(--amber); }
+  .status-paused { background: #FFF3E0; color: var(--amber); }
+  .status-wip    { background: #FFEBEE; color: var(--red); }
+
+  .card-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+  }
+
+  .card-subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--mid);
+    margin-bottom: 0.65rem;
+    letter-spacing: 0.04em;
+  }
+
+  .card-desc {
+    font-size: 0.8rem;
+    color: var(--mid);
+    line-height: 1.55;
+    flex: 1;
+  }
+
+  .card-footer {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--faint);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #aaa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .card-cta {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--navy-mid);
+    white-space: nowrap;
+    transition: color 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .card-cta svg {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Card with no link */
+  .card-noop { cursor: default; }
+  .card-noop:hover { background: var(--white); }
+
+  /* ── ENDPOINTS ───────────────────────────── */
+  .endpoints {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .ep {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+  }
+
+  .ep-method {
+    background: var(--navy);
+    color: rgba(255,255,255,0.8);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+
+  .ep-path { color: var(--orange); }
+  .ep-desc { color: var(--mid); font-size: 9px; margin-left: auto; font-style: italic; }
+
+  /* ── NOTE STRIP ──────────────────────────── */
+  .note-strip {
+    background: #FFF9E6;
+    border-left: 3px solid #F4B400;
+    margin: 0 2rem 0;
+    padding: 0.6rem 1rem;
+    border-radius: 0 3px 3px 0;
+    font-size: 0.78rem;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* ── FOOTER ──────────────────────────────── */
+  footer {
+    padding: 2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #bbb;
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">BHI</div>
+    <div class="logo-text">Best Holidays in Italy <span>/ Tools &amp; Automations</span></div>
+  </div>
+  <div class="header-right">INTERNAL — DO NOT SHARE EXTERNALLY</div>
+</header>
+
+<div class="hero">
+  <h1>Everything<br>in <strong>one place.</strong></h1>
+  <p>All apps, scripts, and automations built for BHI operations — pricing, bookings, supplier reservations, and rate benchmarking.</p>
+</div>
+
+<!-- ── PRICING TOOLS ────────────────────── -->
+<div class="section-label">Pricing &amp; Rates</div>
+
+<div class="grid">
+
+  <!-- Benchmark / Rate Checker -->
+  <a class="card" href="https://beitaly.github.io/bhi-tools/xotelo_rate_tool.html" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-blue">📊</div>
+      <span class="status-badge status-live">Live</span>
+    </div>
+    <div class="card-name">Rate Benchmark Tool</div>
+    <div class="card-subtitle">GitHub Pages · SerpApi + Google Hotels</div>
+    <div class="card-desc">
+      Look up public hotel rates (via Google Hotels) for any property by name and location. Returns per-month rates across multiple durations — use to validate VP prices are 18–20% below market. Connect your Google account to auto-load hotels from a calc sheet.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">beitaly.github.io/bhi-tools/xotelo_rate_tool.html</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+  <!-- Discount Maker -->
+  <div class="card card-noop">
+    <div class="card-top">
+      <div class="card-icon icon-orange">🏷️</div>
+      <span class="status-badge status-beta">Per-Package</span>
+    </div>
+    <div class="card-name">Discount Analyser</div>
+    <div class="card-subtitle">Interactive widget · Built per package</div>
+    <div class="card-desc">
+      Flash-sale discount calculator. Takes the Prorata figures (AVG + MIN netto, pricing chain applied) and shows the new price, client saving in €, and remaining margin at any discount %. Breakeven is always 5.66% (1 − 1/1.06). Built fresh in each package chat — ask Claude to generate it from your Prorata sheet.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">Generated in Claude · not standalone</span>
+      <span class="card-cta" style="color:#aaa;">Ask Claude</span>
+    </div>
+  </div>
+
+  <!-- Package kickoff guide -->
+  <a class="card" href="new_package_kickoff.html" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-purple">📋</div>
+      <span class="status-badge status-live">Reference</span>
+    </div>
+    <div class="card-name">New Package · Kickoff Guide</div>
+    <div class="card-subtitle">Quick-start card for new spreadsheet builds</div>
+    <div class="card-desc">
+      The standard message template and build rules for starting a new VP package in Claude. Open a fresh chat, paste the template with your master spreadsheet link and package details, and the build starts immediately with the correct structure.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">new_package_kickoff.html</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+</div>
+
+<!-- ── OPERATIONS AUTOMATIONS ───────────── -->
+<div class="section-label" style="margin-top:1.5rem">Operations &amp; Booking Automations</div>
+
+<div class="grid">
+
+  <!-- Servantrip / Excursion Automation -->
+  <a class="card" href="https://servantrip-app-production.up.railway.app" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-green">🗺️</div>
+      <span class="status-badge status-live">Live</span>
+    </div>
+    <div class="card-name">Excursion Booking Automation</div>
+    <div class="card-subtitle">Railway · Flask + Playwright</div>
+    <div class="card-desc">
+      End-to-end excursion workflow: scrapes confirmed bookings from the VP partner portal, maps them to Servantrip or Escursì products, books automatically, cleans voucher PDFs, uploads to Google Drive, and delivers merged hotel + excursion PDFs to VP.
+    </div>
+    <div class="endpoints">
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/sync-vp</span>
+        <span class="ep-desc">Scrape VP → populate Excursions sheet</span>
+      </div>
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/run</span>
+        <span class="ep-desc">Book all pending rows</span>
+      </div>
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/run/one?ref=Surname</span>
+        <span class="ep-desc">Book a single client</span>
+      </div>
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/merge?ref=VPREF</span>
+        <span class="ep-desc">Merge + email vouchers to VP</span>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="card-url">servantrip-app-production.up.railway.app</span>
+      <span class="card-cta">Dashboard <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+  <!-- Navigazione Laghi Boat Tickets -->
+  <a class="card" href="https://aware-grace-production-d459.up.railway.app" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-blue">⛵</div>
+      <span class="status-badge status-beta">Check status</span>
+    </div>
+    <div class="card-name">Boat Ticket Reservations</div>
+    <div class="card-subtitle">Railway · Flask + Playwright · Navigazione Laghi</div>
+    <div class="card-desc">
+      Automates Lake Maggiore ferry bookings on navigazionelaghi.it. Reads pending rows from the <em>Boat Tickets</em> tab in the BHI 2026 pivot sheet, fills the booking form, and handles checkout. ~300 bookings/year. Nexi payment capture issue was open at end of last session — verify before using in production.
+    </div>
+    <div class="endpoints">
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/health</span>
+        <span class="ep-desc">Check app is alive</span>
+      </div>
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/run</span>
+        <span class="ep-desc">Process all pending rows</span>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="card-url">aware-grace-production-d459.up.railway.app</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+</div>
+
+<div class="note-strip" style="margin-top:1px; margin-bottom:0;">
+  ⚠️ <strong>Boat Tickets:</strong> the Nexi payment capture issue was still open at the end of the last build session. Do not run in production until resolved — test with /health first to confirm the app is running.
+</div>
+
+<!-- ── KEY SHEETS ────────────────────────── -->
+<div class="section-label" style="margin-top:1.5rem">Key Google Sheets</div>
+
+<div class="grid">
+
+  <a class="card" href="https://docs.google.com/spreadsheets/d/1at7QZ7yZ6YptDZswpoUUnCv5ZJtc9TAescjtP5oOUgM" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-green">📗</div>
+      <span class="status-badge status-live">Live</span>
+    </div>
+    <div class="card-name">2026 Bookings Pivot</div>
+    <div class="card-subtitle">Source of truth for all 2026 VP bookings + margin</div>
+    <div class="card-desc">
+      Main operations sheet. Tab <code>2026-new</code> is the live booking ledger. The <em>Boat Tickets</em> tab auto-populates from this sheet. Also read by the excursion automation (col C = package name, col E = VP ref).
+    </div>
+    <div class="card-footer">
+      <span class="card-url">docs.google.com/spreadsheets · 1at7QZ7...</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+  <a class="card" href="https://docs.google.com/spreadsheets/d/1G0R5MAPXL4ryfXQbXIMAc_AA5inPz__sOaP_PLTqy-w" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-purple">📐</div>
+      <span class="status-badge status-live">Template</span>
+    </div>
+    <div class="card-name">Master Pricing Template</div>
+    <div class="card-subtitle">Base file for all VP package workbook builds</div>
+    <div class="card-desc">
+      The clean master spreadsheet Claude copies and builds on for every new package. Contains the standard sheet structure, formula patterns, and Prorata layout. Never edit this directly — always duplicate first.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">docs.google.com/spreadsheets · 1G0R5MA...</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+  <a class="card" href="https://docs.google.com/spreadsheets/d/13JpTKuYleq0DUgI00bk52kpM4Ji5_T-0i0x5OoP4gNU" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-orange">🏝️</div>
+      <span class="status-badge status-beta">In progress</span>
+    </div>
+    <div class="card-name">Sardinia Grand Tour · Pricing</div>
+    <div class="card-subtitle">7 / 10 / 12 nts · Cagliari → Castelsardo → Arzachena</div>
+    <div class="card-desc">
+      Active package workbook. Three destinations, two variants (with/without excursions). DEST 2 has a November coverage gap to resolve before submission. Rate intelligence from Claudia Soprano incorporated into Prorata alongside VP benchmarks.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">docs.google.com/spreadsheets · 13JpTKu...</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+</div>
+
+<!-- ── ON THE HORIZON ────────────────────── -->
+<div class="section-label" style="margin-top:1.5rem">In the Pipeline</div>
+
+<div class="grid">
+
+  <div class="card card-noop">
+    <div class="card-top">
+      <div class="card-icon icon-blue">🔧</div>
+      <span class="status-badge status-wip">Pending</span>
+    </div>
+    <div class="card-name">Booking.com Rate API</div>
+    <div class="card-subtitle">Replacement for the SerpApi proxy</div>
+    <div class="card-desc">
+      Booking.com Affiliate / Demand API application submitted. Follow-up contact: <strong>CJ_Booking@cj.com</strong>. Once credentials confirmed, rebuild the Rate Benchmark Tool against this API for more reliable hotel coverage and direct-rate data.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">Awaiting Booking.com approval</span>
+      <span class="card-cta" style="color:#aaa;">Not yet built</span>
+    </div>
+  </div>
+
+  <div class="card card-noop">
+    <div class="card-top">
+      <div class="card-icon icon-orange">⛵</div>
+      <span class="status-badge status-wip">Open issue</span>
+    </div>
+    <div class="card-name">Boat Tickets · Nexi Fix</div>
+    <div class="card-subtitle">Navigazione Laghi payment capture</div>
+    <div class="card-desc">
+      The Navigazione Laghi automation has an unresolved Nexi payment link capture issue from the last session. This must be resolved before the app can be used in production. Start a new chat with "Navigazione Laghi Nexi fix" to pick up where we left off.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">aware-grace-production-d459.up.railway.app</span>
+      <span class="card-cta" style="color:#aaa;">Needs fix</span>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>Best Holidays in Italy · Internal Tools Dashboard</span>
+  <span>Last updated Aug 2026 · Not for external distribution</span>
+</footer>
+
+</body>
+</html>
