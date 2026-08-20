@@ -21,10 +21,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
 .field select option{background:var(--blue);color:#fff}
 .field-full{width:100%}
 .field-full input,.field-full textarea{width:100%}
-textarea#hotelList{resize:vertical;min-height:56px;line-height:1.7}
+textarea#hotelList{resize:vertical;min-height:80px;line-height:1.7}
 .field-narrow input,.field-narrow select{width:100px}
 .field-wide input{width:320px}
-.btn{border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;padding:.5rem 1.1rem;cursor:pointer;align-self:flex-end;transition:opacity .15s;white-space:nowrap}
+.btn{border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;padding:.5rem 1.1rem;cursor:pointer;align-self:flex-end;white-space:nowrap}
 .btn-orange{background:var(--orange);color:#fff}
 .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.8)}
 .btn-ghost.connected{border-color:#4CAF50;color:#4CAF50}
@@ -55,17 +55,13 @@ table.rate-table tr:last-child td{border-bottom:none}
 .cell-val{display:inline-block;padding:.18rem .45rem;border-radius:2px;font-weight:500}
 .cell-empty{color:#ccc}
 .cell-low{font-size:9px;color:var(--mid);font-family:'DM Mono',monospace;display:block;margin-top:1px}
-.cell-netto{font-size:9px;color:var(--blue);font-family:'DM Mono',monospace;display:block;margin-top:2px;font-weight:500}
-.cell-gap-ok{color:var(--green);font-size:9px;font-family:'DM Mono',monospace;display:block;margin-top:1px}
-.cell-gap-warn{color:var(--red);font-size:9px;font-family:'DM Mono',monospace;display:block;margin-top:1px}
 .summary-row td{background:#f0f5fa!important;font-weight:500;border-top:1px solid #c8d9ea;border-bottom:none!important;color:var(--blue)}
 .legend{display:flex;align-items:center;gap:.35rem;padding:.75rem 1rem;border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:9px;color:var(--mid);flex-wrap:wrap}
 .legend-swatch{width:14px;height:10px;border-radius:1px}
 .section-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:1.25rem 0 .5rem}
-/* Sheet panel */
 .sheet-strip{background:#1a3d5c;padding:.8rem 1.5rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;border-top:1px solid rgba(255,255,255,.08)}
 .tab-chips{display:flex;flex-wrap:wrap;gap:.4rem;align-self:flex-end}
-.tab-chip{font-family:'DM Mono',monospace;font-size:9px;padding:.25rem .6rem;border:1px solid rgba(255,255,255,.2);border-radius:20px;color:rgba(255,255,255,.6);cursor:pointer;transition:all .12s;user-select:none}
+.tab-chip{font-family:'DM Mono',monospace;font-size:9px;padding:.25rem .6rem;border:1px solid rgba(255,255,255,.2);border-radius:20px;color:rgba(255,255,255,.6);cursor:pointer;user-select:none}
 .tab-chip.active{background:var(--orange);border-color:var(--orange);color:#fff}
 </style>
 </head>
@@ -109,18 +105,18 @@ table.rate-table tr:last-child td{border-bottom:none}
   </div>
   <div class="sheet-strip" id="sheetStrip" style="display:none">
     <div class="field">
-      <label>Destination tabs — select to load hotels</label>
+      <label>Select destination tab</label>
       <div class="tab-chips" id="tabChips"></div>
     </div>
     <div class="field field-full">
-      <label>Hotels loaded from sheet</label>
-      <textarea id="hotelList" placeholder="Hotels will appear here, or type manually: Hotel Name | Location"></textarea>
+      <label>Hotels from sheet (editable — add | Location if needed)</label>
+      <textarea id="hotelList" placeholder="Hotels will load here when you click a tab"></textarea>
     </div>
   </div>
-  <div class="input-strip" id="manualStrip" style="background:#1a3d5c">
+  <div id="manualStrip" style="background:#1a3d5c;padding:.8rem 1.5rem;border-top:1px solid rgba(255,255,255,.08)">
     <div class="field field-full">
-      <label>Hotels - one per line: Hotel Name | Location (manual entry)</label>
-      <textarea id="hotelListManual" placeholder="Grand Hotel Tremezzo | Lake Como&#10;Hotel Metropole | Venice"></textarea>
+      <label style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5)">Manual entry — Hotel Name | Location</label>
+      <textarea id="hotelListManual" style="font-family:'DM Mono',monospace;font-size:.78rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#fff;padding:.42rem .65rem;outline:none;width:100%;resize:vertical;min-height:56px;line-height:1.7;margin-top:.3rem" placeholder="Hotel Metropole | Venice&#10;Grand Hotel Tremezzo | Lake Como"></textarea>
     </div>
   </div>
   <div class="status-bar">
@@ -128,9 +124,7 @@ table.rate-table tr:last-child td{border-bottom:none}
     <span id="statusText">Enter hotels and click Run</span>
   </div>
   <div class="results-area" id="resultsArea">
-    <div class="empty-state">
-      <div class="empty-text">Rates will appear here</div>
-    </div>
+    <div class="empty-state"><div class="empty-text">Rates will appear here</div></div>
   </div>
 </div>
 <script>
@@ -141,7 +135,42 @@ var allData = {};
 var googleToken = null;
 var currentSheetId = null;
 
-// ── ON LOAD: check for OAuth token in URL fragment ──
+// Known non-hotel patterns to filter out from col A
+var SKIP_PATTERNS = [
+  'DEST ', 'MEDIA', 'Split:', 'HOTEL ONLY', 'TOTALE', 'Totale',
+  'PREZZI VP', 'TARIFFE', 'PREZZO VP', 'margine', 'IVA', 'x 1.',
+  'X 1.', 'Edit hotels', 'FIT net', 'FIT contract', 'PER PERSONA',
+  'Sardinia', 'Grand Tour', 'SENZA', 'escursioni', 'hotels +',
+  'Classic Double', 'Standard room', 'Double room', 'nts  ',
+  'Liguria', 'Tuscany', 'Umbria', 'Sicily', 'Lakes', 'Puglia',
+  'TOTALE NETTO', 'Totale Netto', 'PREZZO', 'TARIFF'
+];
+
+// Characters that indicate a non-hotel row
+var SKIP_CHARS = [
+  '\u21d2', '\u00d7', '\u00b7', '\u2022', '\u25cf', '\u25cb',
+  '\u2691', '\u26a0', '\u2139', '\u24d8', '\u2605', '\u2606',
+  '\u27a1', '\u2935', '\u21d2', '\u21e8', '\u2714', '\u2716',
+  '\u22c6', '\u2297', '\u00d7', '\u2318', '\u26d4', '\u2612'
+];
+
+function isHotelName(h) {
+  if (!h || h.length < 4) return false;
+  // Skip if contains known non-hotel patterns
+  for (var i = 0; i < SKIP_PATTERNS.length; i++) {
+    if (h.indexOf(SKIP_PATTERNS[i]) !== -1) return false;
+  }
+  // Skip if contains special unicode chars
+  for (var j = 0; j < SKIP_CHARS.length; j++) {
+    if (h.indexOf(SKIP_CHARS[j]) !== -1) return false;
+  }
+  // Skip rows that start with symbols, numbers, brackets
+  if (/^[\[\(\*\-=>#\d]/.test(h)) return false;
+  // Skip rows that look like formulas or totals
+  if (/^(x|X|\u00d7)\s*\d/.test(h)) return false;
+  return true;
+}
+
 window.addEventListener('load', function() {
   var hash = window.location.hash;
   if (hash.indexOf('token=') !== -1) {
@@ -150,7 +179,7 @@ window.addEventListener('load', function() {
     document.getElementById('connectBtn').textContent = 'Connected';
     document.getElementById('connectBtn').classList.add('connected');
     document.getElementById('loadSheetBtn').disabled = false;
-    setStatus('Google connected', 'done');
+    setStatus('Google connected - paste a sheet URL and click Load Sheet', 'done');
   }
 });
 
@@ -166,20 +195,17 @@ document.getElementById('connectBtn').addEventListener('click', function() {
 
 document.getElementById('loadSheetBtn').addEventListener('click', loadSheet);
 
-// ── SHEET ID FROM URL ──
 function extractSheetId(url) {
   var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
 }
 
-// ── LOAD SHEET TABS ──
 async function loadSheet() {
   var sheetUrl = document.getElementById('sheetUrl').value.trim();
   if (!sheetUrl) { setStatus('Paste a Google Sheets URL first', 'error'); return; }
   var sheetId = extractSheetId(sheetUrl);
   if (!sheetId) { setStatus('Could not parse sheet ID from URL', 'error'); return; }
   currentSheetId = sheetId;
-
   var proxy = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
   setStatus('Loading sheet tabs...', 'active');
   try {
@@ -189,20 +215,22 @@ async function loadSheet() {
     renderTabChips(j.tabs);
     document.getElementById('sheetStrip').style.display = '';
     document.getElementById('manualStrip').style.display = 'none';
-    setStatus('Sheet loaded - select a destination tab', 'done');
+    setStatus('Sheet loaded - click a destination tab to load its hotels', 'done');
   } catch(e) {
     setStatus('Sheet error: ' + e.message, 'error');
   }
 }
 
-// ── RENDER TAB CHIPS ──
+// Skip tabs that are not destination tabs
+var SKIP_TABS = ['Prorata','Template','Summary','SUMMARY','Instructions','Istruzioni','README','Info','Cover'];
+
 function renderTabChips(tabs) {
   var container = document.getElementById('tabChips');
   container.innerHTML = '';
-  // Skip non-destination tabs
-  var skip = ['Prorata','Template','Summary','SUMMARY','Instructions'];
   tabs.forEach(function(tab) {
-    if (skip.indexOf(tab) !== -1) return;
+    if (SKIP_TABS.indexOf(tab) !== -1) return;
+    // Skip tabs that look like night-variant copies (10nts, 12nts etc)
+    if (/\d+\s*nts?/i.test(tab)) return;
     var chip = document.createElement('span');
     chip.className = 'tab-chip';
     chip.textContent = tab;
@@ -215,7 +243,6 @@ function renderTabChips(tabs) {
   });
 }
 
-// ── LOAD HOTELS FROM TAB ──
 async function loadTabHotels(tab) {
   var proxy = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
   setStatus('Loading hotels from ' + tab + '...', 'active');
@@ -223,19 +250,16 @@ async function loadTabHotels(tab) {
     var r = await fetch(proxy + '/sheet?sheet_id=' + currentSheetId + '&tab=' + encodeURIComponent(tab) + '&token=' + googleToken);
     var j = await r.json();
     if (j.error) throw new Error(j.error);
-    // Filter out header-like rows and blank entries
-    var hotels = j.hotels.filter(function(h) {
-      return h && h.length > 2 && h.toLowerCase().indexOf('hotel') !== -1 ||
-             h.length > 3 && !/^(notti|nights|hotel|property|name|dest)/i.test(h);
-    });
+    // Filter to hotel names only
+    var hotels = j.hotels.filter(isHotelName);
+    // Append | Italy as default location (editable by user)
     document.getElementById('hotelList').value = hotels.map(function(h){ return h + ' | Italy'; }).join('\n');
-    setStatus('Loaded ' + hotels.length + ' hotels from ' + tab, 'done');
+    setStatus('Loaded ' + hotels.length + ' hotels from ' + tab + ' - adjust locations if needed, then click Run', 'done');
   } catch(e) {
     setStatus('Error loading tab: ' + e.message, 'error');
   }
 }
 
-// ── HELPERS ──
 function heatColour(t) {
   if (t === null) return { bg: 'transparent', fg: '#ccc' };
   var stops = [[183,225,161],[255,240,160],[255,178,80]];
@@ -274,19 +298,13 @@ function addNights(dateStr, nights) {
 
 function parseNights() {
   return document.getElementById('nights').value
-    .split(',')
-    .map(function(s){ return parseInt(s.trim()); })
-    .filter(function(n){ return n > 0; });
+    .split(',').map(function(s){ return parseInt(s.trim()); }).filter(function(n){ return n > 0; });
 }
 
 function parseHotels() {
-  var src = document.getElementById('sheetStrip').style.display !== 'none'
-    ? document.getElementById('hotelList').value
-    : document.getElementById('hotelListManual').value;
-  return src
-    .split('\n')
-    .map(function(s){ return s.trim(); })
-    .filter(Boolean)
+  var useSheet = document.getElementById('sheetStrip').style.display !== 'none';
+  var src = useSheet ? document.getElementById('hotelList').value : document.getElementById('hotelListManual').value;
+  return src.split('\n').map(function(s){ return s.trim(); }).filter(Boolean)
     .map(function(line) {
       var parts = line.split('|').map(function(p){ return p.trim(); });
       return { name: parts[0], location: parts[1] || '', label: line };
@@ -306,7 +324,6 @@ function currencySymbol() {
   return c === 'EUR' ? '\u20AC' : c === 'GBP' ? '\u00A3' : '$';
 }
 
-// ── FETCH ──
 async function fetchSnapshot(hotelName, location, cin, cout, currency) {
   var proxyBase = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
   var query = location ? hotelName + ' ' + location : hotelName;
@@ -403,7 +420,6 @@ async function runFetch() {
   setStatus('Done - ' + hotels.length + ' hotel(s), ' + total + ' snapshots', 'done');
 }
 
-// ── RENDER ──
 function renderResults(results, nightArr, currency, year) {
   var sym = currencySymbol();
   var area = document.getElementById('resultsArea');
@@ -413,7 +429,7 @@ function renderResults(results, nightArr, currency, year) {
 
   var lbl = document.createElement('div');
   lbl.className = 'section-label';
-  lbl.textContent = 'Per-Hotel Market Rates - ' + year + ' - Per-night room rate (divide by 2 for pp netto)';
+  lbl.textContent = 'Market Rates - ' + year + ' - Per-night room rate (divide by 2 for pp netto)';
   area.appendChild(lbl);
 
   for (var ki = 0; ki < keys.length; ki++) {
@@ -439,14 +455,12 @@ function renderResults(results, nightArr, currency, year) {
     wrap.className = 'rate-table-wrap';
     var table = document.createElement('table');
     table.className = 'rate-table';
-
     var hrow = '<thead><tr><th>Nights</th>';
     for (var mi = 0; mi < MONTHS.length; mi++) hrow += '<th>' + MONTHS[mi] + '</th>';
     hrow += '<th>Min</th><th>Avg</th></tr></thead>';
     table.innerHTML = hrow;
 
     var tbody = document.createElement('tbody');
-
     for (var ni = 0; ni < nightArr.length; ni++) {
       var n = nightArr[ni];
       var monthRates = hotel.ratesByNights[n];
@@ -497,7 +511,7 @@ function renderResults(results, nightArr, currency, year) {
 
     var leg = document.createElement('div');
     leg.className = 'legend';
-    leg.innerHTML = 'Market rate heatmap: <span class="legend-swatch" style="background:#b7e1a1"></span>Low <span class="legend-swatch" style="background:#fff0a0"></span>Mid <span class="legend-swatch" style="background:#ffb250"></span>High - Avg of 4 snapshots (1st 8th 15th 22nd) - divide by 2 for pp netto';
+    leg.innerHTML = 'Heatmap: <span class="legend-swatch" style="background:#b7e1a1"></span>Low <span class="legend-swatch" style="background:#fff0a0"></span>Mid <span class="legend-swatch" style="background:#ffb250"></span>High - Avg of 4 snapshots (1st 8th 15th 22nd) - divide by 2 for pp netto';
     card.appendChild(leg);
     area.appendChild(card);
   }
