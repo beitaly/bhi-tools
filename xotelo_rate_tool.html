@@ -3,766 +3,437 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Xotelo Rate Checker · BHI</title>
+<title>Hotel Rate Checker - BHI</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --blue:    #1F4E79;
-    --blue-lt: #2D6CA0;
-    --orange:  #D4613D;
-    --ink:     #1a1a1a;
-    --mid:     #888;
-    --border:  #e4e4e4;
-    --bg:      #F0EDE8;
-    --surface: #fff;
-    --grey:    #F5F5F5;
-    --mono:    'DM Mono', monospace;
-    --sans:    'DM Sans', sans-serif;
-  }
-
-  body {
-    font-family: var(--sans);
-    background: var(--bg);
-    color: var(--ink);
-    min-height: 100vh;
-    padding: 2rem;
-  }
-
-  /* ── TOP BAR ── */
-  .topbar {
-    max-width: 1200px;
-    margin: 0 auto 1.5rem;
-    display: flex;
-    align-items: baseline;
-    gap: 1rem;
-  }
-  .topbar-brand {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--mid);
-  }
-  .topbar h1 {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--blue);
-  }
-  .topbar-sep { color: var(--border); }
-
-  /* ── PANEL ── */
-  .panel {
-    max-width: 1200px;
-    margin: 0 auto;
-    background: var(--surface);
-    border-radius: 3px;
-    box-shadow: 0 2px 24px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
-    overflow: hidden;
-  }
-
-  /* ── INPUT STRIP ── */
-  .input-strip {
-    background: var(--blue);
-    padding: 1.1rem 1.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: flex-end;
-  }
-
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-  .field label {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.5);
-  }
-  .field input, .field select {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 3px;
-    color: #fff;
-    padding: 0.42rem 0.65rem;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .field input::placeholder { color: rgba(255,255,255,0.3); }
-  .field input:focus, .field select:focus { border-color: rgba(255,255,255,0.45); }
-  .field select option { background: var(--blue); color: #fff; }
-
-  .field-wide input { width: 260px; }
-  .field-narrow input, .field-narrow select { width: 100px; }
-  .field-mid input { width: 140px; }
-
-  /* hotel list textarea */
-  #hotelList {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 3px;
-    color: #fff;
-    padding: 0.42rem 0.65rem;
-    outline: none;
-    width: 100%;
-    resize: vertical;
-    min-height: 64px;
-    line-height: 1.7;
-    transition: border-color 0.15s;
-  }
-  #hotelList::placeholder { color: rgba(255,255,255,0.3); }
-  #hotelList:focus { border-color: rgba(255,255,255,0.45); }
-
-  .field-full { width: 100%; }
-
-  .run-btn {
-    background: var(--orange);
-    border: none;
-    border-radius: 3px;
-    color: #fff;
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    padding: 0.5rem 1.25rem;
-    cursor: pointer;
-    align-self: flex-end;
-    transition: opacity 0.15s;
-    white-space: nowrap;
-  }
-  .run-btn:hover { opacity: 0.88; }
-  .run-btn:disabled { opacity: 0.4; cursor: default; }
-
-  .export-btn {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 3px;
-    color: rgba(255,255,255,0.7);
-    font-family: var(--mono);
-    font-size: 0.76rem;
-    padding: 0.5rem 0.9rem;
-    cursor: pointer;
-    align-self: flex-end;
-    transition: all 0.15s;
-  }
-  .export-btn:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
-  .export-btn:disabled { opacity: 0.3; cursor: default; }
-
-  /* ── STATUS BAR ── */
-  .status-bar {
-    background: #f8f7f5;
-    border-bottom: 1px solid var(--border);
-    padding: 0.5rem 1.5rem;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--mid);
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  .status-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--border);
-    flex-shrink: 0;
-  }
-  .status-dot.active { background: #4CAF50; animation: pulse 1.5s infinite; }
-  .status-dot.error  { background: var(--orange); }
-  .status-dot.done   { background: var(--blue); }
-  @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:0.4 } }
-
-  /* ── RESULTS ── */
-  .results-area {
-    padding: 1.25rem 1.5rem;
-    min-height: 200px;
-  }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 180px;
-    gap: 0.5rem;
-    color: var(--mid);
-  }
-  .empty-icon { font-size: 1.8rem; opacity: 0.3; }
-  .empty-text { font-size: 0.8rem; font-family: var(--mono); }
-
-  /* ── HOTEL CARD ── */
-  .hotel-card {
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    margin-bottom: 1rem;
-    overflow: hidden;
-  }
-
-  .hotel-card-header {
-    background: var(--grey);
-    padding: 0.65rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .hotel-key {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    color: var(--mid);
-    text-transform: uppercase;
-  }
-  .hotel-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--blue);
-  }
-  .hotel-stars {
-    font-size: 0.7rem;
-    color: #c8a400;
-    letter-spacing: -0.02em;
-  }
-  .hotel-location {
-    font-size: 0.75rem;
-    color: var(--mid);
-    font-style: italic;
-    margin-left: auto;
-  }
-
-  .hotel-error {
-    padding: 0.75rem 1rem;
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--orange);
-  }
-
-  /* ── RATE TABLE ── */
-  .rate-table-wrap { overflow-x: auto; }
-  table.rate-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.75rem;
-  }
-  table.rate-table th {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--mid);
-    padding: 0.45rem 0.7rem;
-    text-align: right;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  table.rate-table th:first-child { text-align: left; }
-  table.rate-table td {
-    padding: 0.4rem 0.7rem;
-    border-bottom: 1px solid #f0f0f0;
-    text-align: right;
-    font-family: var(--mono);
-    font-size: 0.74rem;
-  }
-  table.rate-table td:first-child {
-    text-align: left;
-    color: var(--mid);
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  table.rate-table tr:last-child td { border-bottom: none; }
-  table.rate-table tr:hover td { background: rgba(31,78,121,0.03); }
-
-  /* heatmap cells */
-  .cell-val {
-    display: inline-block;
-    padding: 0.18rem 0.45rem;
-    border-radius: 2px;
-    font-weight: 500;
-  }
-  .cell-empty { color: #ccc; }
-
-  /* ── SUMMARY ROW ── */
-  .summary-row td {
-    background: #f0f5fa !important;
-    font-weight: 500;
-    border-top: 1px solid #c8d9ea;
-    border-bottom: none !important;
-    color: var(--blue);
-  }
-  .summary-row td:first-child { color: var(--blue); font-size: 9px; }
-
-  /* ── LEGEND ── */
-  .legend {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--border);
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--mid);
-    letter-spacing: 0.06em;
-  }
-  .legend-swatch {
-    width: 14px; height: 10px;
-    border-radius: 1px;
-  }
-  .legend-label { margin-right: 0.5rem; }
-
-  /* ── CONSOLIDATED TABLE ── */
-  .consolidated {
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    margin-top: 0.5rem;
-    overflow: hidden;
-  }
-  .consolidated-header {
-    background: var(--blue);
-    color: #fff;
-    padding: 0.6rem 1rem;
-    font-size: 0.82rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .consolidated-header .badge {
-    font-family: var(--mono);
-    font-size: 9px;
-    background: rgba(255,255,255,0.15);
-    padding: 0.1rem 0.45rem;
-    border-radius: 10px;
-    letter-spacing: 0.06em;
-  }
-
-  /* ── SECTION LABEL ── */
-  .section-label {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--mid);
-    margin: 1.25rem 0 0.5rem;
-  }
-  .section-label:first-child { margin-top: 0; }
-
-  /* ── NIGHTS TOGGLE ── */
-  .nights-toggle {
-    display: flex;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-  }
-  .night-chip {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    padding: 0.28rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    cursor: pointer;
-    color: var(--mid);
-    transition: all 0.12s;
-    user-select: none;
-  }
-  .night-chip.active {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: #fff;
-  }
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#1F4E79;--orange:#D4613D;--ink:#1a1a1a;--mid:#888;--border:#e4e4e4;--bg:#F0EDE8;--surface:#fff;--grey:#F5F5F5}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:2rem}
+.topbar{max-width:1200px;margin:0 auto 1.5rem;display:flex;align-items:baseline;gap:1rem}
+.topbar-brand{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid)}
+.topbar h1{font-size:1rem;font-weight:500;color:var(--blue)}
+.panel{max-width:1200px;margin:0 auto;background:var(--surface);border-radius:3px;box-shadow:0 2px 24px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04);overflow:hidden}
+.input-strip{background:var(--blue);padding:1.1rem 1.5rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.field input,.field select,.field textarea{font-family:'DM Mono',monospace;font-size:.78rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#fff;padding:.42rem .65rem;outline:none}
+.field input::placeholder,.field textarea::placeholder{color:rgba(255,255,255,.3)}
+.field select option{background:var(--blue);color:#fff}
+.field-full{width:100%}
+.field-full input,.field-full textarea{width:100%}
+textarea#hotelList{resize:vertical;min-height:64px;line-height:1.7}
+.field-narrow input,.field-narrow select{width:100px}
+.run-btn{background:var(--orange);border:none;border-radius:3px;color:#fff;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;padding:.5rem 1.25rem;cursor:pointer;align-self:flex-end}
+.run-btn:disabled{opacity:.4;cursor:default}
+.export-btn{background:transparent;border:1px solid rgba(255,255,255,.25);border-radius:3px;color:rgba(255,255,255,.7);font-family:'DM Mono',monospace;font-size:.76rem;padding:.5rem .9rem;cursor:pointer;align-self:flex-end}
+.export-btn:disabled{opacity:.3;cursor:default}
+.status-bar{background:#f8f7f5;border-bottom:1px solid var(--border);padding:.5rem 1.5rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--mid);min-height:32px;display:flex;align-items:center;gap:.75rem}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0}
+.status-dot.active{background:#4CAF50;animation:pulse 1.5s infinite}
+.status-dot.error{background:var(--orange)}
+.status-dot.done{background:var(--blue)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.results-area{padding:1.25rem 1.5rem;min-height:200px}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;gap:.5rem;color:var(--mid)}
+.empty-icon{font-size:1.8rem;opacity:.3}
+.empty-text{font-size:.8rem;font-family:'DM Mono',monospace}
+.hotel-card{border:1px solid var(--border);border-radius:3px;margin-bottom:1rem;overflow:hidden}
+.hotel-card-header{background:var(--grey);padding:.65rem 1rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border)}
+.hotel-key{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--mid);text-transform:uppercase}
+.hotel-name{font-size:.85rem;font-weight:500;color:var(--blue)}
+.hotel-stars{font-size:.7rem;color:#c8a400}
+.hotel-meta{font-size:.75rem;color:var(--mid);font-style:italic;margin-left:auto}
+.rate-table-wrap{overflow-x:auto}
+table.rate-table{width:100%;border-collapse:collapse;font-size:.75rem}
+table.rate-table th{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);padding:.45rem .7rem;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+table.rate-table th:first-child{text-align:left}
+table.rate-table td{padding:.4rem .7rem;border-bottom:1px solid #f0f0f0;text-align:right;font-family:'DM Mono',monospace;font-size:.74rem;vertical-align:top}
+table.rate-table td:first-child{text-align:left;color:var(--mid);font-size:9px;text-transform:uppercase;white-space:nowrap}
+table.rate-table tr:last-child td{border-bottom:none}
+.cell-val{display:inline-block;padding:.18rem .45rem;border-radius:2px;font-weight:500}
+.cell-empty{color:#ccc}
+.cell-low{font-size:9px;color:var(--mid);font-family:'DM Mono',monospace;display:block;margin-top:1px}
+.summary-row td{background:#f0f5fa!important;font-weight:500;border-top:1px solid #c8d9ea;border-bottom:none!important;color:var(--blue)}
+.legend{display:flex;align-items:center;gap:.35rem;padding:.75rem 1rem;border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:9px;color:var(--mid);flex-wrap:wrap}
+.legend-swatch{width:14px;height:10px;border-radius:1px}
+.section-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:1.25rem 0 .5rem}
+.consolidated{border:1px solid var(--border);border-radius:3px;margin-top:.5rem;overflow:hidden}
+.con-header{background:var(--blue);color:#fff;padding:.6rem 1rem;font-size:.82rem;font-weight:500;display:flex;align-items:center;gap:.5rem}
+.badge{font-family:'DM Mono',monospace;font-size:9px;background:rgba(255,255,255,.15);padding:.1rem .45rem;border-radius:10px}
 </style>
 </head>
 <body>
-
 <div class="topbar">
-  <span class="topbar-brand">BHI · Voyage Privé</span>
-  <span class="topbar-sep">·</span>
-  <h1>Xotelo Rate Checker</h1>
+  <span class="topbar-brand">BHI - Voyage Prive</span>
+  <h1>Hotel Rate Checker</h1>
 </div>
-
 <div class="panel">
-
-  <!-- INPUT STRIP -->
   <div class="input-strip">
     <div class="field field-full">
-      <label>TripAdvisor Hotel Keys — one per line (e.g. g187849-d1234567)</label>
-      <textarea id="hotelList" placeholder="g187849-d1234567&#10;g187849-d7654321&#10;g187849-d9988776"></textarea>
+      <label>Proxy URL (Railway)</label>
+      <input type="text" id="proxyUrl" value="https://web-production-57cc2.up.railway.app">
     </div>
-
+    <div class="field field-full">
+      <label>Hotels - one per line: Hotel Name | Location</label>
+      <textarea id="hotelList" placeholder="Grand Hotel Tremezzo | Lake Como"></textarea>
+    </div>
     <div class="field field-narrow">
-      <label>Check-in year</label>
-      <input type="number" id="year" value="2027" min="2024" max="2030">
+      <label>Year</label>
+      <input type="number" id="year" value="2026" min="2024" max="2030">
     </div>
-
     <div class="field field-narrow">
-      <label>Nights (×2pp)</label>
-      <input type="text" id="nights" value="5,7,9,11" placeholder="5,7,9,11">
+      <label>Nights</label>
+      <input type="text" id="nights" value="5,7,9,11">
     </div>
-
     <div class="field field-narrow">
       <label>Currency</label>
       <select id="currency">
-        <option value="EUR" selected>EUR €</option>
-        <option value="GBP">GBP £</option>
-        <option value="USD">USD $</option>
+        <option value="EUR" selected>EUR</option>
+        <option value="GBP">GBP</option>
+        <option value="USD">USD</option>
       </select>
     </div>
-
-    <div class="field field-narrow">
-      <label>Rooms</label>
-      <select id="rooms">
-        <option value="1" selected>1 room</option>
-        <option value="2">2 rooms</option>
-      </select>
-    </div>
-
-    <button class="run-btn" id="runBtn" onclick="runFetch()">▶ Run</button>
-    <button class="export-btn" id="exportBtn" onclick="exportCSV()" disabled>↓ CSV</button>
+    <button class="run-btn" id="runBtn">Run</button>
+    <button class="export-btn" id="exportBtn" disabled>CSV</button>
   </div>
-
-  <!-- STATUS BAR -->
   <div class="status-bar">
     <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Enter hotel keys above and click Run</span>
+    <span id="statusText">Enter hotels above and click Run</span>
   </div>
-
-  <!-- RESULTS -->
   <div class="results-area" id="resultsArea">
     <div class="empty-state">
-      <div class="empty-icon">⌖</div>
+      <div class="empty-icon">+</div>
       <div class="empty-text">Rates will appear here</div>
     </div>
   </div>
-
 </div>
-
 <script>
-/* ─────────────────────────────────────────────
-   XOTELO API
-   GET https://data.xotelo.com/api/rates
-   ?hotel_key=KEY&checkin=YYYY-MM-DD&checkout=YYYY-MM-DD&currency=EUR
-   Returns: { result: { rates: [ {name, rate:{...}} ] } }
-───────────────────────────────────────────── */
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-// Representative check-in dates: mid-month (15th), except Dec use 12th
-const SAMPLE_DAYS = [15,15,15,15,15,15,15,15,15,15,15,12];
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var SAMPLE_DAYS = [1, 8, 15, 22];
+var allData = {};
 
-let allData = {}; // key → { info, rates }
+document.getElementById('runBtn').addEventListener('click', runFetch);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
-/* ── COLOUR SCALE ── */
-// Map 0–1 normalised value → green→yellow→amber
 function heatColour(t) {
   if (t === null) return { bg: 'transparent', fg: '#ccc' };
-  // green #b7e1a1 → yellow #fff0a0 → amber #ffd080
-  const stops = [
-    [183,225,161], // low
-    [255,240,160], // mid
-    [255,178,80],  // high
-  ];
-  let r, g, b;
+  var stops = [[183,225,161],[255,240,160],[255,178,80]];
+  var r, g, b, u;
   if (t <= 0.5) {
-    const u = t * 2;
+    u = t * 2;
     r = stops[0][0] + (stops[1][0]-stops[0][0])*u;
     g = stops[0][1] + (stops[1][1]-stops[0][1])*u;
     b = stops[0][2] + (stops[1][2]-stops[0][2])*u;
   } else {
-    const u = (t - 0.5) * 2;
+    u = (t - 0.5) * 2;
     r = stops[1][0] + (stops[2][0]-stops[1][0])*u;
     g = stops[1][1] + (stops[2][1]-stops[1][1])*u;
     b = stops[1][2] + (stops[2][2]-stops[1][2])*u;
   }
-  return {
-    bg: `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`,
-    fg: t > 0.65 ? '#5a3800' : '#1a4000'
-  };
+  return { bg: 'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')', fg: t > 0.65 ? '#5a3800' : '#1a4000' };
 }
 
 function normalise(values) {
-  const valid = values.filter(v => v !== null && v > 0);
-  if (!valid.length) return values.map(() => null);
-  const min = Math.min(...valid), max = Math.max(...valid);
-  const span = max - min || 1;
-  return values.map(v => v === null || v === 0 ? null : (v - min) / span);
+  var valid = values.filter(function(v){ return v !== null && v > 0; });
+  if (!valid.length) return values.map(function(){ return null; });
+  var mn = Math.min.apply(null, valid), mx = Math.max.apply(null, valid);
+  var span = mx - mn || 1;
+  return values.map(function(v){ return (v === null || v === 0) ? null : (v - mn) / span; });
 }
 
-/* ── DATE HELPERS ── */
-function checkoutDate(year, monthIdx, nights) {
-  const cin = new Date(year, monthIdx, SAMPLE_DAYS[monthIdx]);
-  const cout = new Date(cin); cout.setDate(cout.getDate() + nights);
-  return cout.toISOString().slice(0,10);
-}
-function checkinDate(year, monthIdx) {
-  return `${year}-${String(monthIdx+1).padStart(2,'0')}-${String(SAMPLE_DAYS[monthIdx]).padStart(2,'0')}`;
+function fmtDate(year, monthIdx, day) {
+  return year + '-' + String(monthIdx+1).padStart(2,'0') + '-' + String(day).padStart(2,'0');
 }
 
-/* ── PARSE NIGHTS ── */
+function addNights(dateStr, nights) {
+  var d = new Date(dateStr);
+  d.setDate(d.getDate() + nights);
+  return d.toISOString().slice(0,10);
+}
+
 function parseNights() {
   return document.getElementById('nights').value
-    .split(',').map(s => parseInt(s.trim())).filter(n => n > 0);
+    .split(',')
+    .map(function(s){ return parseInt(s.trim()); })
+    .filter(function(n){ return n > 0; });
 }
 
-/* ── FETCH ONE HOTEL ONE MONTH ONE DURATION ── */
-async function fetchRate(key, year, monthIdx, nights, currency) {
-  const cin  = checkinDate(year, monthIdx);
-  const cout = checkoutDate(year, monthIdx, nights);
-  const url  = `https://data.xotelo.com/api/rates?hotel_key=${encodeURIComponent(key)}&checkin=${cin}&checkout=${cout}&currency=${currency}&get_rate_breakdown=1`;
+function parseHotels() {
+  return document.getElementById('hotelList').value
+    .split('\n')
+    .map(function(s){ return s.trim(); })
+    .filter(Boolean)
+    .map(function(line) {
+      var parts = line.split('|').map(function(p){ return p.trim(); });
+      return { name: parts[0], location: parts[1] || '', label: line };
+    });
+}
+
+function delay(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+function setStatus(msg, state) {
+  document.getElementById('statusText').textContent = msg;
+  var dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (state ? ' ' + state : '');
+}
+
+function currencySymbol() {
+  var c = document.getElementById('currency').value;
+  return c === 'EUR' ? '\u20AC' : c === 'GBP' ? '\u00A3' : '$';
+}
+
+async function fetchSnapshot(hotelName, location, cin, cout, currency) {
+  var proxyBase = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  var query = location ? hotelName + ' ' + location : hotelName;
+  var url = proxyBase + '/rates?q=' + encodeURIComponent(query) +
+    '&check_in_date=' + cin + '&check_out_date=' + cout + '&currency=' + currency;
   try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
-    if (j.error) throw new Error(j.error.message || 'API error');
-    // Return cheapest rate found
-    const rates = j?.result?.rates || [];
-    const vals = rates.map(e => e?.rate?.price).filter(v => typeof v === 'number' && v > 0);
-    // Also get hotel name from first rate or meta
-    const hotelName = j?.result?.hotel?.name || null;
-    const stars     = j?.result?.hotel?.stars || null;
-    const address   = j?.result?.hotel?.address || null;
-    return {
-      min: vals.length ? Math.min(...vals) : null,
-      hotelName, stars, address
-    };
+    var r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var j = await r.json();
+    if (j.error) throw new Error(String(j.error));
+
+    // Case 1: single property detail
+    if (j.name && j.rate_per_night) {
+      var rate = j.rate_per_night.extracted_lowest || j.rate_per_night.extracted_before_taxes_fees || null;
+      return { price: rate ? Math.round(rate) : null, hotelName: j.name,
+        rating: j.overall_rating || null, reviews: j.reviews || null,
+        stars: j.hotel_class ? String(j.hotel_class).replace(/[^0-9]/g,'') : null };
+    }
+
+    // Case 2: properties list
+    var props = j.properties || [];
+    if (props.length) {
+      var lc = hotelName.toLowerCase();
+      var match = props.find(function(p){ return p.name && p.name.toLowerCase().indexOf(lc) !== -1; }) || props[0];
+      var rate2 = match.rate_per_night ? (match.rate_per_night.extracted_lowest || match.rate_per_night.extracted_before_taxes_fees || null) : null;
+      return { price: rate2 ? Math.round(rate2) : null, hotelName: match.name || null,
+        rating: match.overall_rating || null, reviews: match.reviews || null,
+        stars: match.hotel_class ? String(match.hotel_class).replace(/[^0-9]/g,'') : null };
+    }
+    return { price: null, hotelName: null, rating: null, reviews: null, stars: null };
   } catch(e) {
-    return { min: null, error: e.message, hotelName: null };
+    console.warn('fetchSnapshot error:', e.message);
+    return { price: null, hotelName: null, rating: null, reviews: null, stars: null };
   }
 }
 
-/* ── MAIN RUN ── */
-async function runFetch() {
-  const keys = document.getElementById('hotelList').value
-    .split('\n').map(s => s.trim()).filter(Boolean);
-  if (!keys.length) { setStatus('Enter at least one hotel key', 'error'); return; }
+async function fetchRate(hotel, year, monthIdx, nights, currency) {
+  var meta = { hotelName: null, stars: null, rating: null, reviews: null };
+  var prices = [];
+  var maxDay = new Date(year, monthIdx + 1, 0).getDate();
+  for (var i = 0; i < SAMPLE_DAYS.length; i++) {
+    var day = SAMPLE_DAYS[i];
+    if (day > maxDay) continue;
+    var cin = fmtDate(year, monthIdx, day);
+    var cout = addNights(cin, nights);
+    var snap = await fetchSnapshot(hotel.name, hotel.location, cin, cout, currency);
+    if (snap.hotelName && !meta.hotelName) {
+      meta = { hotelName: snap.hotelName, stars: snap.stars, rating: snap.rating, reviews: snap.reviews };
+    }
+    if (snap.price !== null) prices.push(snap.price);
+    await delay(400);
+  }
+  var avg = prices.length ? Math.round(prices.reduce(function(a,b){ return a+b; }, 0) / prices.length) : null;
+  var min = prices.length ? Math.min.apply(null, prices) : null;
+  return { avg: avg, min: min, hotelName: meta.hotelName, stars: meta.stars, rating: meta.rating, reviews: meta.reviews };
+}
 
-  const year     = parseInt(document.getElementById('year').value);
-  const currency = document.getElementById('currency').value;
-  const nightArr = parseNights();
+async function runFetch() {
+  var hotels = parseHotels();
+  var proxyUrl = document.getElementById('proxyUrl').value.trim();
+  if (!proxyUrl) { setStatus('Enter proxy URL first', 'error'); return; }
+  if (!hotels.length) { setStatus('Enter at least one hotel', 'error'); return; }
+  var year = parseInt(document.getElementById('year').value);
+  var currency = document.getElementById('currency').value;
+  var nightArr = parseNights();
   if (!nightArr.length) { setStatus('Enter valid night durations', 'error'); return; }
 
-  document.getElementById('runBtn').disabled    = true;
+  document.getElementById('runBtn').disabled = true;
   document.getElementById('exportBtn').disabled = true;
   allData = {};
+  var total = hotels.length * MONTHS.length * nightArr.length * SAMPLE_DAYS.length;
+  var done = 0;
+  var results = {};
 
-  const total = keys.length * MONTHS.length * nightArr.length;
-  let done = 0;
-
-  setStatus(`Fetching 0 / ${total} rate points…`, 'active');
-
-  const results = {};
-
-  for (const key of keys) {
+  for (var hi = 0; hi < hotels.length; hi++) {
+    var hotel = hotels[hi];
+    var key = hotel.label;
     results[key] = { info: {}, ratesByNights: {} };
-    for (const n of nightArr) {
+    for (var ni = 0; ni < nightArr.length; ni++) {
+      var n = nightArr[ni];
       results[key].ratesByNights[n] = [];
-      for (let m = 0; m < 12; m++) {
-        const { min, hotelName, stars, address, error } = await fetchRate(key, year, m, n, currency);
-        if (!results[key].info.name && hotelName) {
-          results[key].info = { name: hotelName, stars, address };
+      for (var m = 0; m < 12; m++) {
+        var res = await fetchRate(hotel, year, m, n, currency);
+        if (!results[key].info.name && res.hotelName) {
+          results[key].info = { name: res.hotelName, stars: res.stars, rating: res.rating, reviews: res.reviews };
         }
-        results[key].ratesByNights[n].push(min);
-        done++;
-        setStatus(`Fetching ${done} / ${total} rate points… (${key})`, 'active');
-        await delay(80); // gentle throttle
+        results[key].ratesByNights[n].push({ avg: res.avg, min: res.min });
+        done += SAMPLE_DAYS.length;
+        setStatus('Fetching ' + done + ' / ' + total + ' (' + hotel.name + ' - ' + MONTHS[m] + ')', 'active');
       }
     }
   }
 
   allData = results;
   renderResults(results, nightArr, currency, year);
-  document.getElementById('runBtn').disabled    = false;
+  document.getElementById('runBtn').disabled = false;
   document.getElementById('exportBtn').disabled = false;
-  setStatus(`Done — ${keys.length} hotel${keys.length > 1 ? 's' : ''}, ${total} rate points fetched`, 'done');
+  setStatus('Done - ' + hotels.length + ' hotel(s), ' + total + ' snapshots', 'done');
 }
 
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-/* ── RENDER ── */
 function renderResults(results, nightArr, currency, year) {
-  const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
-  const area = document.getElementById('resultsArea');
+  var sym = currencySymbol();
+  var area = document.getElementById('resultsArea');
   area.innerHTML = '';
+  var keys = Object.keys(results);
+  if (!keys.length) { area.innerHTML = '<div class="empty-state"><div class="empty-text">No data</div></div>'; return; }
 
-  const keys = Object.keys(results);
-  if (!keys.length) { area.innerHTML = '<div class="empty-state"><div class="empty-icon">⌖</div><div class="empty-text">No data</div></div>'; return; }
+  var lbl = document.createElement('div');
+  lbl.className = 'section-label';
+  lbl.textContent = 'Per-Hotel Rates - ' + year + ' - Per-night room rate (divide by 2 for pp netto)';
+  area.appendChild(lbl);
 
-  // ── Individual hotel cards
-  const indivLabel = document.createElement('div');
-  indivLabel.className = 'section-label';
-  indivLabel.textContent = `Per-Hotel Rates · ${year} · Lowest nightly rate per room (÷ 2 for pp)`;
-  area.appendChild(indivLabel);
-
-  for (const key of keys) {
-    const hotel = results[key];
-    const card = document.createElement('div');
+  for (var ki = 0; ki < keys.length; ki++) {
+    var key = keys[ki];
+    var hotel = results[key];
+    var card = document.createElement('div');
     card.className = 'hotel-card';
 
-    const starsStr = hotel.info.stars ? '★'.repeat(parseInt(hotel.info.stars)) : '';
-    card.innerHTML = `
-      <div class="hotel-card-header">
-        <span class="hotel-key">${key}</span>
-        <span class="hotel-name">${hotel.info.name || '—'}</span>
-        ${starsStr ? `<span class="hotel-stars">${starsStr}</span>` : ''}
-        ${hotel.info.address ? `<span class="hotel-location">${hotel.info.address}</span>` : ''}
-      </div>`;
+    var stars = hotel.info.stars ? parseInt(hotel.info.stars) : 0;
+    var starsStr = '';
+    for (var s = 0; s < stars; s++) starsStr += '\u2605';
+    var ratingStr = hotel.info.rating ? ' - ' + hotel.info.rating + (hotel.info.reviews ? ' (' + hotel.info.reviews + ')' : '') : '';
 
-    // One table per night duration
-    const wrap = document.createElement('div');
+    var hdr = document.createElement('div');
+    hdr.className = 'hotel-card-header';
+    hdr.innerHTML = '<span class="hotel-key">' + key + '</span>' +
+      '<span class="hotel-name">' + (hotel.info.name || key) + '</span>' +
+      (starsStr ? '<span class="hotel-stars">' + starsStr + '</span>' : '') +
+      '<span class="hotel-meta">' + ratingStr + '</span>';
+    card.appendChild(hdr);
+
+    var wrap = document.createElement('div');
     wrap.className = 'rate-table-wrap';
-
-    const table = document.createElement('table');
+    var table = document.createElement('table');
     table.className = 'rate-table';
 
-    // Header
-    const thead = document.createElement('thead');
-    thead.innerHTML = `<tr>
-      <th>Nights</th>
-      ${MONTHS.map(m => `<th>${m}</th>`).join('')}
-      <th>Min</th><th>Avg</th>
-    </tr>`;
-    table.appendChild(thead);
+    var hrow = '<thead><tr><th>Nights</th>';
+    for (var mi = 0; mi < MONTHS.length; mi++) hrow += '<th>' + MONTHS[mi] + '</th>';
+    hrow += '<th>Min</th><th>Avg</th></tr></thead>';
+    table.innerHTML = hrow;
 
-    const tbody = document.createElement('tbody');
+    var tbody = document.createElement('tbody');
 
-    for (const n of nightArr) {
-      const monthRates = hotel.ratesByNights[n]; // array of 12 values (total per stay)
-      // Per-night value for display
-      const perNight = monthRates.map(v => v !== null ? Math.round(v / n) : null);
-      const norm = normalise(perNight);
-      const valid = perNight.filter(v => v !== null);
-      const minV = valid.length ? Math.min(...valid) : null;
-      const avgV = valid.length ? Math.round(valid.reduce((a,b)=>a+b,0)/valid.length) : null;
+    for (var ni = 0; ni < nightArr.length; ni++) {
+      var n = nightArr[ni];
+      var monthRates = hotel.ratesByNights[n];
+      var perAvg = monthRates.map(function(o){ return o.avg !== null ? Math.round(o.avg / n) : null; });
+      var perMin = monthRates.map(function(o){ return o.min !== null ? Math.round(o.min / n) : null; });
+      var norm = normalise(perAvg);
+      var validA = perAvg.filter(function(v){ return v !== null; });
+      var validM = perMin.filter(function(v){ return v !== null; });
+      var minV = validM.length ? Math.min.apply(null, validM) : null;
+      var avgV = validA.length ? Math.round(validA.reduce(function(a,b){ return a+b; },0) / validA.length) : null;
 
-      const tr = document.createElement('tr');
-      let cells = `<td>${n} nts</td>`;
-      perNight.forEach((v, i) => {
+      var tr = document.createElement('tr');
+      var cells = '<td>' + n + ' nts</td>';
+      for (var ci = 0; ci < perAvg.length; ci++) {
+        var v = perAvg[ci];
+        var fv = perMin[ci];
         if (v === null) {
-          cells += `<td><span class="cell-val cell-empty">—</span></td>`;
+          cells += '<td><span class="cell-val cell-empty">-</span></td>';
         } else {
-          const c = heatColour(norm[i]);
-          cells += `<td><span class="cell-val" style="background:${c.bg};color:${c.fg}">${sym}${v}</span></td>`;
+          var c = heatColour(norm[ci]);
+          var lowStr = (fv !== null && fv < v) ? '<span class="cell-low">lo ' + sym + fv + '</span>' : '';
+          cells += '<td><span class="cell-val" style="background:' + c.bg + ';color:' + c.fg + '">' + sym + v + '</span>' + lowStr + '</td>';
         }
-      });
-      cells += `<td style="color:var(--blue);font-weight:500">${minV !== null ? sym+minV : '—'}</td>`;
-      cells += `<td style="color:var(--mid)">${avgV !== null ? sym+avgV : '—'}</td>`;
+      }
+      cells += '<td style="color:var(--blue);font-weight:500">' + (minV !== null ? sym + minV : '-') + '</td>';
+      cells += '<td style="color:var(--mid)">' + (avgV !== null ? sym + avgV : '-') + '</td>';
       tr.innerHTML = cells;
       tbody.appendChild(tr);
     }
 
-    // Summary: cross-night min per month
-    const summaryTr = document.createElement('tr');
-    summaryTr.className = 'summary-row';
-    let sumCells = `<td>Best rate / night</td>`;
-    for (let m = 0; m < 12; m++) {
-      const vals = nightArr.map(n => {
-        const v = hotel.ratesByNights[n][m];
-        return v !== null ? Math.round(v / n) : null;
-      }).filter(v => v !== null);
-      sumCells += `<td>${vals.length ? sym + Math.min(...vals) : '—'}</td>`;
+    var sumTr = document.createElement('tr');
+    sumTr.className = 'summary-row';
+    var sumCells = '<td>Best/night</td>';
+    for (var m2 = 0; m2 < 12; m2++) {
+      var bvals = [];
+      for (var nj = 0; nj < nightArr.length; nj++) {
+        var o = hotel.ratesByNights[nightArr[nj]][m2];
+        if (o && o.avg !== null) bvals.push(Math.round(o.avg / nightArr[nj]));
+      }
+      sumCells += '<td>' + (bvals.length ? sym + Math.min.apply(null, bvals) : '-') + '</td>';
     }
-    sumCells += `<td></td><td></td>`;
-    summaryTr.innerHTML = sumCells;
-    tbody.appendChild(summaryTr);
-
+    sumCells += '<td></td><td></td>';
+    sumTr.innerHTML = sumCells;
+    tbody.appendChild(sumTr);
     table.appendChild(tbody);
     wrap.appendChild(table);
     card.appendChild(wrap);
 
-    // Legend
-    card.innerHTML += `
-      <div class="legend">
-        <span class="legend-label">Per-night room rate · Heatmap:</span>
-        <span class="legend-swatch" style="background:#b7e1a1"></span> Low
-        <span class="legend-swatch" style="background:#fff0a0"></span> Mid
-        <span class="legend-swatch" style="background:#ffb250"></span> High
-        · Values = total room rate ÷ nights (÷ 2 for per-person)
-      </div>`;
-
+    var leg = document.createElement('div');
+    leg.className = 'legend';
+    leg.innerHTML = 'Heatmap: <span class="legend-swatch" style="background:#b7e1a1"></span>Low <span class="legend-swatch" style="background:#fff0a0"></span>Mid <span class="legend-swatch" style="background:#ffb250"></span>High - Avg of 4 snapshots (1st 8th 15th 22nd) - divide by 2 for pp';
+    card.appendChild(leg);
     area.appendChild(card);
-
-    // Need to re-append wrap since innerHTML clobbers it
-    const lastCard = area.lastElementChild;
-    const lastHeader = lastCard.querySelector('.hotel-card-header');
-    lastCard.innerHTML = '';
-    lastCard.appendChild(lastHeader);
-    lastCard.appendChild(wrap);
-    const legendDiv = document.createElement('div');
-    legendDiv.className = 'legend';
-    legendDiv.innerHTML = `<span class="legend-label">Per-night room rate · Heatmap:</span>
-      <span class="legend-swatch" style="background:#b7e1a1"></span> Low&nbsp;
-      <span class="legend-swatch" style="background:#fff0a0"></span> Mid&nbsp;
-      <span class="legend-swatch" style="background:#ffb250"></span> High
-      &nbsp;· Values = total room ÷ nights &nbsp;(÷2 = per person)`;
-    lastCard.appendChild(legendDiv);
   }
 
-  // ── Consolidated comparison table (only if >1 hotel, first night duration)
   if (keys.length > 1) {
-    const consolidatedLabel = document.createElement('div');
-    consolidatedLabel.className = 'section-label';
-    consolidatedLabel.textContent = `Consolidated Comparison · ${nightArr[0]} nts · Per-night room rate`;
-    area.appendChild(consolidatedLabel);
+    var conLbl = document.createElement('div');
+    conLbl.className = 'section-label';
+    conLbl.textContent = 'Consolidated - ' + nightArr[0] + ' nts';
+    area.appendChild(conLbl);
 
-    const con = document.createElement('div');
+    var con = document.createElement('div');
     con.className = 'consolidated';
-    con.innerHTML = `<div class="consolidated-header">
-      All Hotels · Best rate per night (per room) · ${nightArr[0]} nights
-      <span class="badge">${keys.length} hotels</span>
-    </div>`;
+    var conH = document.createElement('div');
+    conH.className = 'con-header';
+    conH.innerHTML = 'All Hotels - ' + nightArr[0] + ' nights <span class="badge">' + keys.length + '</span>';
+    con.appendChild(conH);
 
-    const conWrap = document.createElement('div');
+    var conWrap = document.createElement('div');
     conWrap.className = 'rate-table-wrap';
-    const conTable = document.createElement('table');
+    var conTable = document.createElement('table');
     conTable.className = 'rate-table';
-    conTable.innerHTML = `<thead><tr>
-      <th>Hotel</th>
-      ${MONTHS.map(m => `<th>${m}</th>`).join('')}
-      <th>Min/nt</th>
-    </tr></thead>`;
+    var conHead = '<thead><tr><th>Hotel</th>';
+    for (var mi2 = 0; mi2 < MONTHS.length; mi2++) conHead += '<th>' + MONTHS[mi2] + '</th>';
+    conHead += '<th>Min/nt</th></tr></thead>';
+    conTable.innerHTML = conHead;
 
-    const conBody = document.createElement('tbody');
-    // Gather all values for global normalisation
-    const allVals = [];
-    const hotelRows = keys.map(key => {
-      const n = nightArr[0];
-      return results[key].ratesByNights[n].map(v => v !== null ? Math.round(v / n) : null);
+    var allV = [];
+    var rows = keys.map(function(k) {
+      var nn = nightArr[0];
+      return results[k].ratesByNights[nn].map(function(o){ return o && o.avg !== null ? Math.round(o.avg/nn) : null; });
     });
-    hotelRows.forEach(row => row.forEach(v => { if (v) allVals.push(v); }));
-    const globalMin = allVals.length ? Math.min(...allVals) : 0;
-    const globalMax = allVals.length ? Math.max(...allVals) : 1;
-    const gSpan = globalMax - globalMin || 1;
+    rows.forEach(function(row){ row.forEach(function(v){ if(v) allV.push(v); }); });
+    var gMn = allV.length ? Math.min.apply(null,allV) : 0;
+    var gMx = allV.length ? Math.max.apply(null,allV) : 1;
+    var gSp = gMx - gMn || 1;
 
-    keys.forEach((key, idx) => {
-      const row = hotelRows[idx];
-      const valid = row.filter(v => v !== null);
-      const tr = document.createElement('tr');
-      let cells = `<td title="${key}">${results[key].info.name || key}</td>`;
-      row.forEach(v => {
-        if (v === null) {
-          cells += `<td><span class="cell-val cell-empty">—</span></td>`;
-        } else {
-          const t = (v - globalMin) / gSpan;
-          const c = heatColour(t);
-          cells += `<td><span class="cell-val" style="background:${c.bg};color:${c.fg}">${sym}${v}</span></td>`;
+    var conBody = document.createElement('tbody');
+    for (var ki2 = 0; ki2 < keys.length; ki2++) {
+      var k2 = keys[ki2];
+      var row2 = rows[ki2];
+      var v2 = row2.filter(function(v){ return v !== null; });
+      var tr2 = document.createElement('tr');
+      var c2s = '<td>' + (results[k2].info.name || k2) + '</td>';
+      for (var ri = 0; ri < row2.length; ri++) {
+        var rv = row2[ri];
+        if (rv === null) { c2s += '<td><span class="cell-val cell-empty">-</span></td>'; }
+        else {
+          var t2 = (rv - gMn) / gSp;
+          var col = heatColour(t2);
+          c2s += '<td><span class="cell-val" style="background:' + col.bg + ';color:' + col.fg + '">' + sym + rv + '</span></td>';
         }
-      });
-      const minV = valid.length ? Math.min(...valid) : null;
-      cells += `<td style="color:var(--blue);font-weight:500">${minV ? sym+minV : '—'}</td>`;
-      tr.innerHTML = cells;
-      conBody.appendChild(tr);
-    });
-
+      }
+      var mv2 = v2.length ? Math.min.apply(null,v2) : null;
+      c2s += '<td style="color:var(--blue);font-weight:500">' + (mv2 ? sym+mv2 : '-') + '</td>';
+      tr2.innerHTML = c2s;
+      conBody.appendChild(tr2);
+    }
     conTable.appendChild(conBody);
     conWrap.appendChild(conTable);
     con.appendChild(conWrap);
@@ -770,38 +441,32 @@ function renderResults(results, nightArr, currency, year) {
   }
 }
 
-/* ── EXPORT CSV ── */
 function exportCSV() {
   if (!Object.keys(allData).length) return;
-  const nightArr = parseNights();
-  const currency = document.getElementById('currency').value;
-  const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
-  const year = document.getElementById('year').value;
-
-  let csv = `Hotel Key,Hotel Name,Nights,${MONTHS.join(',')},Min/nt,Avg/nt\n`;
-  for (const [key, hotel] of Object.entries(allData)) {
-    for (const n of nightArr) {
-      const perNight = hotel.ratesByNights[n].map(v => v !== null ? Math.round(v / n) : '');
-      const valid = perNight.filter(v => v !== '');
-      const minV = valid.length ? Math.min(...valid) : '';
-      const avgV = valid.length ? Math.round(valid.reduce((a,b)=>a+b,0)/valid.length) : '';
-      csv += `"${key}","${hotel.info.name || ''}",${n},${perNight.join(',')},${minV},${avgV}\n`;
+  var nightArr = parseNights();
+  var year = document.getElementById('year').value;
+  var cur = document.getElementById('currency').value;
+  var rows = ['Hotel,Name,Nights,' + MONTHS.join(' Avg,') + ' Avg,Min/nt,OvAvg,' + MONTHS.join(' Low,') + ' Low'];
+  for (var key in allData) {
+    var hotel = allData[key];
+    for (var ni = 0; ni < nightArr.length; ni++) {
+      var n = nightArr[ni];
+      var aArr = hotel.ratesByNights[n].map(function(o){ return o && o.avg !== null ? Math.round(o.avg/n) : ''; });
+      var mArr = hotel.ratesByNights[n].map(function(o){ return o && o.min !== null ? Math.round(o.min/n) : ''; });
+      var vA = aArr.filter(function(v){ return v !== ''; });
+      var vM = mArr.filter(function(v){ return v !== ''; });
+      var bestMin = vM.length ? Math.min.apply(null,vM) : '';
+      var ovAvg = vA.length ? Math.round(vA.reduce(function(a,b){ return a+b; },0)/vA.length) : '';
+      rows.push('"' + key + '","' + (hotel.info.name||'') + '",' + n + ',' + aArr.join(',') + ',' + bestMin + ',' + ovAvg + ',' + mArr.join(','));
     }
   }
-
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
+  var blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `xotelo_rates_${year}_${currency}.csv`;
+  a.download = 'hotel_rates_' + year + '_' + cur + '.csv';
   a.click();
 }
 
-/* ── STATUS ── */
-function setStatus(msg, state) {
-  document.getElementById('statusText').textContent = msg;
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot' + (state ? ' ' + state : '');
-}
 </script>
 </body>
 </html>
