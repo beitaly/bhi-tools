@@ -406,35 +406,64 @@
       <span class="status-badge status-live">Live</span>
     </div>
     <div class="card-name">Excursion Booking Automation</div>
-    <div class="card-subtitle">Railway · Flask + Playwright</div>
+    <div class="card-subtitle">Railway · Flask + Playwright + APITrip</div>
     <div class="card-desc">
-      End-to-end excursion workflow: scrapes confirmed bookings from the VP partner portal, maps them to Servantrip or Escursì products, books automatically, cleans voucher PDFs, uploads to Google Drive, and delivers merged hotel + excursion PDFs to VP.
+      End-to-end excursion workflow: reads VP export CSV from Gmail, maps bookings to Servantrip or Escursì products, books automatically, cleans voucher PDFs, uploads to Google Drive, and delivers merged hotel + excursion PDFs to VP.
     </div>
     <div class="endpoints">
       <div class="ep">
         <span class="ep-method">GET</span>
-        <span class="ep-path">/sync-vp</span>
-        <span class="ep-desc">Scrape VP → populate Excursions sheet</span>
+        <span class="ep-path">/sync-csv</span>
+        <span class="ep-desc">Read VP export CSV from Gmail → populate Excursions sheet</span>
       </div>
       <div class="ep">
         <span class="ep-method">GET</span>
         <span class="ep-path">/run</span>
-        <span class="ep-desc">Book all pending rows</span>
+        <span class="ep-desc">Book all pending rows (Servantrip + Escursì)</span>
       </div>
       <div class="ep">
         <span class="ep-method">GET</span>
         <span class="ep-path">/run/one?ref=Surname</span>
-        <span class="ep-desc">Book a single client</span>
+        <span class="ep-desc">Book a single client (test first)</span>
+      </div>
+      <div class="ep">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/cancel?order_id=XXX</span>
+        <span class="ep-desc">Cancel a booking + update sheet</span>
       </div>
       <div class="ep">
         <span class="ep-method">GET</span>
         <span class="ep-path">/merge?ref=VPREF</span>
-        <span class="ep-desc">Merge + email vouchers to VP</span>
+        <span class="ep-desc">Merge hotel + excursion PDFs → email VP</span>
       </div>
     </div>
     <div class="card-footer">
       <span class="card-url">servantrip-app-production.up.railway.app</span>
       <span class="card-cta">Dashboard <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+  <!-- Voucher Merger -->
+  <a class="card" href="https://servantrip-app-production.up.railway.app/vouchers" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-orange">📄</div>
+      <span class="status-badge status-live">Live</span>
+    </div>
+    <div class="card-name">Voucher Merger</div>
+    <div class="card-subtitle">Railway · Web UI</div>
+    <div class="card-desc">
+      Upload hotel voucher (from b2b.bestholidaysinitaly.com) and excursion PDFs (Servantrip / Escursì) — strips third-party branding, merges into one clean PDF, optionally appends the Lakes mini-guide and emails directly to traveldocuments@voyageprive.com.
+    </div>
+    <div class="endpoints">
+      <div class="ep">
+        <span class="ep-method">UI</span>
+        <span class="ep-path">/vouchers</span>
+        <span class="ep-desc">Upload PDFs → merge → download or send to VP</span>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="card-url">servantrip-app-production.up.railway.app/vouchers</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
     </div>
   </a>
 
