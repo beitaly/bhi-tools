@@ -36,7 +36,7 @@
 
   /* ── page chrome ── */
   .page-header {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto 1.5rem;
     display: flex;
     align-items: flex-end;
@@ -73,7 +73,7 @@
 
   /* ── shell ── */
   .shell {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
     background: #fff;
     border-radius: 3px;
@@ -81,7 +81,7 @@
     box-shadow: 0 2px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
   }
 
-  /* ── tab nav ── */
+  /* ── PRIMARY tab nav (packages) ── */
   .tab-nav {
     background: var(--dark-blue);
     display: flex;
@@ -110,6 +110,34 @@
   /* ── panels ── */
   .tab-panel { display: none; padding: 1.75rem; }
   .tab-panel.active { display: block; }
+
+  /* ── SECONDARY tab nav (sub-tabs within a panel) ── */
+  .sub-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 1.25rem;
+  }
+  .sub-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--mid);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.55rem 1rem 0.55rem 0;
+    margin-right: 1.25rem;
+    cursor: pointer;
+    margin-bottom: -1.5px;
+    transition: all 0.12s;
+  }
+  .sub-btn:hover { color: var(--dark-blue); }
+  .sub-btn.active { color: var(--dark-blue); border-bottom-color: var(--dark-blue); font-weight: 500; }
+
+  .sub-panel { display: none; }
+  .sub-panel.active { display: block; }
 
   /* ── section headings ── */
   .section-label {
@@ -159,14 +187,27 @@
   .hotel-list li.alt { color: var(--mid); }
   .hotel-list li::before {
     content: '';
-    width: 5px;
-    height: 5px;
+    width: 5px; height: 5px;
     border-radius: 50%;
     background: #ccc;
     flex-shrink: 0;
     margin-top: 5px;
   }
   .hotel-list li.primary::before { background: var(--dark-blue); }
+  .hotel-list li.garda-south::before { background: var(--orange); }
+
+  /* sub-list within hotel col */
+  .hotel-list .sub-heading {
+    font-family: 'DM Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #aaa;
+    border-bottom: none;
+    padding-top: 0.5rem;
+    display: block;
+  }
+  .hotel-list .sub-heading::before { display: none; }
 
   .legend {
     display: flex;
@@ -180,6 +221,7 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
   .dot-p { background: var(--dark-blue); }
   .dot-a { background: #ccc; }
+  .dot-s { background: var(--orange); }
 
   /* ── steps ── */
   .steps { list-style: none; margin-bottom: 1.5rem; }
@@ -207,7 +249,7 @@
     line-height: 1.45;
   }
 
-  /* ── alert boxes ── */
+  /* ── alerts ── */
   .alert {
     border-radius: 3px;
     padding: 0.75rem 1rem;
@@ -234,14 +276,11 @@
     font-family: 'DM Mono', monospace;
     letter-spacing: 0.04em;
   }
-  .exp-blue { background: var(--lt-blue); color: var(--dark-blue); }
+  .exp-blue   { background: var(--lt-blue); color: var(--dark-blue); }
   .exp-orange { background: var(--lt-orange); color: var(--orange); }
-  .exp-green { background: var(--green-bg); color: var(--green-txt); }
+  .exp-green  { background: var(--green-bg); color: var(--green-txt); }
 
-  /* ── divider ── */
-  .divider { border: none; border-top: 1px solid #f0f0f0; margin: 1.25rem 0; }
-
-  /* ── booking systems inline list ── */
+  /* ── booking systems ── */
   .sys-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
   .sys-tag {
     font-family: 'DM Mono', monospace;
@@ -253,7 +292,18 @@
     letter-spacing: 0.04em;
   }
 
-  /* ── footer ── */
+  .divider { border: none; border-top: 1px solid #f0f0f0; margin: 1.25rem 0; }
+
+  /* ── meta line ── */
+  .pkg-meta {
+    font-size: 0.8rem;
+    color: var(--mid);
+    margin-bottom: 1.25rem;
+    line-height: 1.6;
+  }
+  .pkg-meta strong { color: var(--ink); }
+
+  /* ── shell footer ── */
   .shell-footer {
     background: var(--yellow);
     padding: 0.65rem 1.75rem;
@@ -262,6 +312,18 @@
     font-family: 'DM Mono', monospace;
     letter-spacing: 0.03em;
     opacity: 0.8;
+  }
+
+  /* ── 4S difference callout ── */
+  .diff-box {
+    background: #F3E5F5;
+    border-left: 3px solid #9C27B0;
+    border-radius: 0 3px 3px 0;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.78rem;
+    color: #4A148C;
+    line-height: 1.5;
   }
 </style>
 </head>
@@ -285,128 +347,277 @@
     <button class="tab-btn" onclick="show('veneto')" role="tab">Veneto exp</button>
   </nav>
 
-  <!-- ═══════════════ LAKES ═══════════════ -->
+  <!-- ═══ LAKES ═══ -->
   <div id="panel-lakes" class="tab-panel active">
 
-    <p class="step-note" style="margin-bottom:1.25rem;font-size:0.8rem;color:var(--mid);">
-      VP contact: <strong style="color:var(--ink)">Charline</strong> &nbsp;·&nbsp;
+    <p class="pkg-meta">
+      VP contact: <strong>Charline</strong> &nbsp;·&nbsp;
       5 nts (Maggiore + Como) or 7 nts (+ Garda) &nbsp;·&nbsp;
       Chain: netto × 1.06 × 1.23 = VP price
     </p>
 
-    <div class="section-label">Hotels</div>
-    <div class="legend">
-      <span><span class="dot dot-p"></span> Primary (used in 2026)</span>
-      <span><span class="dot dot-a"></span> Alternative (contracted in ratesheet)</span>
+    <!-- sub-tabs -->
+    <div class="sub-nav">
+      <button class="sub-btn active" onclick="showSub('lakes','four')">4★ Standard</button>
+      <button class="sub-btn" onclick="showSub('lakes','fours')">4S Superior</button>
     </div>
 
-    <div class="hotel-grid">
-      <div class="hotel-col">
-        <div class="col-title">Lake Maggiore · 3 nts</div>
-        <ul class="hotel-list">
-          <li class="primary">Pallanza by LVG Hotel Collection</li>
-          <li class="primary">Milan Speranza au Lac</li>
-          <li class="alt">Villa Paradiso</li>
-          <li class="alt">Grand Hotel Majestic</li>
-          <li class="alt">Hotel La Palma</li>
-          <li class="alt">Îles Borromées</li>
-          <li class="alt">Astoria</li>
-          <li class="alt">De Charme Laveno</li>
-          <li class="alt">Hotel Cannero Lakeside Resort</li>
-          <li class="alt">Ghiffa</li>
-          <li class="alt">Ancora</li>
-          <li class="alt">Bel Sit</li>
-          <li class="alt">Relais Villa Porta</li>
-          <li class="alt">Regina Palace</li>
-        </ul>
+    <!-- 4★ sub-panel -->
+    <div id="lakes-sub-four" class="sub-panel active">
+
+      <div class="section-label">Hotels</div>
+      <div class="legend">
+        <span><span class="dot dot-p"></span>Primary (used in 2026)</span>
+        <span><span class="dot dot-a"></span>Alternative (in ratesheet)</span>
+        <span><span class="dot dot-s"></span>Garda — Desenzano / Sirmione / Peschiera area</span>
       </div>
-      <div class="hotel-col">
-        <div class="col-title">Lake Como · 2 nts</div>
-        <ul class="hotel-list">
-          <li class="primary">Barchetta Excelsior</li>
-          <li class="primary">Asnigo</li>
-          <li class="primary">Como (hotel)</li>
-          <li class="primary">Axolute Comfort</li>
-          <li class="alt">Albavilla Hotel & Co.</li>
-          <li class="alt">Albergo Le Due Corti</li>
-          <li class="alt">NH Lecco Pontevecchio</li>
-          <li class="alt">Grand Hotel Menaggio</li>
-          <li class="alt">Belvedere (Menaggio)</li>
-          <li class="alt">Red's Radaelli</li>
-          <li class="alt">Griso Collection</li>
-          <li class="alt">Seven Park</li>
-          <li class="alt">Hotel Villa Cipressi</li>
-          <li class="alt">Royal Victoria</li>
-          <li class="alt">Hilton Lake Como</li>
-          <li class="alt">Sheraton Lake Como</li>
-          <li class="alt">Palace Hotel Lake Como</li>
-          <li class="alt">BW Leonardo da Vinci</li>
-        </ul>
+
+      <div class="hotel-grid">
+
+        <div class="hotel-col">
+          <div class="col-title">Lake Maggiore · 3 nts</div>
+          <ul class="hotel-list">
+            <li class="primary">Pallanza by LVG Hotel Collection</li>
+            <li class="primary">Milan Speranza au Lac</li>
+            <li class="alt">Villa Paradiso</li>
+            <li class="alt">Grand Hotel Majestic</li>
+            <li class="alt">Hotel La Palma</li>
+            <li class="alt">Îles Borromées</li>
+            <li class="alt">Astoria</li>
+            <li class="alt">De Charme Laveno</li>
+            <li class="alt">Hotel Cannero Lakeside Resort</li>
+            <li class="alt">Ghiffa</li>
+            <li class="alt">Ancora</li>
+            <li class="alt">Bel Sit</li>
+            <li class="alt">Relais Villa Porta</li>
+            <li class="alt">Regina Palace</li>
+          </ul>
+        </div>
+
+        <div class="hotel-col">
+          <div class="col-title">Lake Como · 2 nts</div>
+          <ul class="hotel-list">
+            <li class="primary">Barchetta Excelsior</li>
+            <li class="primary">Asnigo</li>
+            <li class="primary">Como (hotel)</li>
+            <li class="primary">Axolute Comfort</li>
+            <li class="alt">Albavilla Hotel & Co.</li>
+            <li class="alt">Albergo Le Due Corti</li>
+            <li class="alt">NH Lecco Pontevecchio</li>
+            <li class="alt">Grand Hotel Menaggio</li>
+            <li class="alt">Belvedere (Menaggio)</li>
+            <li class="alt">Red's Radaelli</li>
+            <li class="alt">Griso Collection</li>
+            <li class="alt">Seven Park</li>
+            <li class="alt">Hotel Villa Cipressi</li>
+            <li class="alt">Royal Victoria</li>
+            <li class="alt">Hilton Lake Como</li>
+            <li class="alt">Sheraton Lake Como</li>
+            <li class="alt">Palace Hotel Lake Como</li>
+            <li class="alt">BW Leonardo da Vinci</li>
+          </ul>
+        </div>
+
+        <div class="hotel-col">
+          <div class="col-title">Lake Garda · 2 nts (7 nts only)</div>
+          <ul class="hotel-list">
+            <li class="primary garda-south">Acquaviva del Garda <span style="font-size:0.65rem;color:var(--orange)">· Desenzano</span></li>
+            <li class="primary garda-south">The Ziba Hotel & Spa <span style="font-size:0.65rem;color:var(--orange)">· Peschiera</span></li>
+            <li class="primary garda-south">Donna Silvia <span style="font-size:0.65rem;color:var(--orange)">· Manerba/Desenzano area</span></li>
+            <li class="primary garda-south">Flaminia <span style="font-size:0.65rem;color:var(--orange)">· Sirmione</span></li>
+
+            <li class="sub-heading">Sirmione</li>
+            <li class="alt garda-south">Alevic Hotel Sirmione</li>
+            <li class="alt garda-south">Hotel Ocelle Thermae & Spa</li>
+            <li class="alt garda-south">HI Hotels Sirmione Lakeview Pool</li>
+            <li class="alt garda-south">Hotel Continental Wellness & Spa</li>
+            <li class="alt garda-south">Hotel Sirmione Terme</li>
+            <li class="alt garda-south">Du Parc</li>
+
+            <li class="sub-heading">Desenzano / Peschiera</li>
+            <li class="alt garda-south">Kristal Palace</li>
+            <li class="alt garda-south">Villa Paradiso Suite</li>
+            <li class="alt garda-south">Hotel Europa</li>
+            <li class="alt garda-south">Hotel Bella Italia</li>
+            <li class="alt garda-south">Sisan Family Resort</li>
+            <li class="alt garda-south">Le Ali del Frassino</li>
+            <li class="alt garda-south">TH Lazise – Hotel Parchi del Garda</li>
+            <li class="alt garda-south">Active Hotel Paradiso & Golf</li>
+            <li class="alt garda-south">Enjoy Garda</li>
+            <li class="alt garda-south">Caesius Thermae & Spa Resort</li>
+
+            <li class="sub-heading">Other areas (Riva / Garda town / Lake shore)</li>
+            <li class="alt">Grand Hotel Riva</li>
+            <li class="alt">Hotel Portici Romantik & Wellness</li>
+            <li class="alt">Arco Smart Hotel</li>
+            <li class="alt">Hotel Luise</li>
+            <li class="alt">Hotel Sole Relax & Panorama</li>
+            <li class="alt">Hotel Aquila d'Oro</li>
+            <li class="alt">Hotel Boffenigo The Golden Hour</li>
+            <li class="alt">Du Lac et Du Parc</li>
+            <li class="alt">Grand Hotel Liberty</li>
+            <li class="alt">Garda Bellevue</li>
+            <li class="alt">Rivalta Life Style Hotel</li>
+            <li class="alt">Splendid Sole</li>
+            <li class="alt">Savoy Palace</li>
+            <li class="alt">Monastero Resort & Spa</li>
+            <li class="alt">Poiano Resort</li>
+            <li class="alt">Villa Arcadio Hotel & Resort</li>
+          </ul>
+        </div>
+
+      </div><!-- /hotel-grid -->
+
+      <div class="section-label">Experiences included</div>
+      <div class="exp-row">
+        <span class="exp-tag exp-blue">Navigazione Laghi — Maggiore boat (all variants)</span>
+        <span class="exp-tag exp-blue">Navigazione Laghi — Como cruise (7 nts only)</span>
+        <span class="exp-tag exp-orange">Wine tasting — BHI B2B manual (all variants)</span>
+        <span class="exp-tag exp-blue">Sirm boat — Garda (select packages)</span>
       </div>
-      <div class="hotel-col">
-        <div class="col-title">Lake Garda · 2 nts (7 nts only)</div>
-        <ul class="hotel-list">
-          <li class="primary">Acquaviva</li>
-          <li class="primary">Donna Silvia</li>
-          <li class="primary">Ziba / Riel</li>
-          <li class="alt">Du Lac et Du Parc</li>
-          <li class="alt">Grand Hotel Riva</li>
-          <li class="alt">Park Hotel (Riva)</li>
-          <li class="alt">Arya</li>
-        </ul>
-        <p class="step-note" style="margin-top:0.5rem;">~127 further Garda hotels in LKGD1–32 sheets. Ask Concezio if primaries are sold out.</p>
+
+      <div class="section-label">Booking systems</div>
+      <div class="sys-list">
+        <span class="sys-tag">Hotelston</span>
+        <span class="sys-tag">Xenia</span>
+        <span class="sys-tag">AIC</span>
+        <span class="sys-tag">Restel</span>
+        <span class="sys-tag">Methabook</span>
+        <span class="sys-tag">Pallanza direct</span>
+        <span class="sys-tag">Pruvo (rate monitoring)</span>
       </div>
-    </div>
 
-    <div class="section-label">Experiences included</div>
-    <div class="exp-row">
-      <span class="exp-tag exp-blue">Navigazione Laghi — Maggiore boat (all variants)</span>
-      <span class="exp-tag exp-blue">Navigazione Laghi — Como cruise (7 nts only)</span>
-      <span class="exp-tag exp-orange">Wine tasting — BHI B2B manual (all variants)</span>
-      <span class="exp-tag exp-blue">Sirm boat — Garda (select packages)</span>
-    </div>
+      <hr class="divider">
+      <div class="section-label">Step-by-step procedure</div>
+      <ol class="steps">
+        <li><span class="step-n">01</span><div class="step-body">Receive VP confirmation. Note surname, pax, travel dates, product code, and variant (4★ or 4S, 5 or 7 nts).<div class="step-note">Check the Boat Tickets tab in the pivot for any existing entry first.</div></div></li>
+        <li><span class="step-n">02</span><div class="step-body">Check availability at primary hotels. Start with Pallanza (Maggiore) and Barchetta (Como). For Garda, try Acquaviva or Ziba in the Desenzano/Peschiera area first.</div></li>
+        <li><span class="step-n">03</span><div class="step-body">Reserve hotels via the correct OTA. Record invoice references and batch totals in the pivot DETAILS column (e.g. "in 1622.07").</div></li>
+        <li><span class="step-n">04</span><div class="step-body">Book Navigazione Laghi boat tickets.<div class="step-note" style="color:var(--warn-txt);font-weight:500;">⚠ Boat Ticket app — DO NOT use in production (Nexi session-bound issue unresolved). Book directly with Navigazione Laghi in an unbroken browser session.</div></div></li>
+        <li><span class="step-n">05</span><div class="step-body">Book wine tasting via BHI B2B system (manual). Note supplier reference.</div></li>
+        <li><span class="step-n">06</span><div class="step-body">Enter all costs in the 2026 Bookings Pivot (tab: 2026-new). One row per supplier payment. Code = client surname.</div></li>
+        <li><span class="step-n">07</span><div class="step-body">Generate voucher and send to client. Mark <code>voucher_ready = yes</code> in the Boat Tickets tab.</div></li>
+      </ol>
 
-    <div class="section-label">Booking systems</div>
-    <div class="sys-list">
-      <span class="sys-tag">Hotelston</span>
-      <span class="sys-tag">Xenia</span>
-      <span class="sys-tag">AIC</span>
-      <span class="sys-tag">Restel</span>
-      <span class="sys-tag">Methabook</span>
-      <span class="sys-tag">Pallanza direct</span>
-      <span class="sys-tag">Pruvo (rate monitoring)</span>
-    </div>
+    </div><!-- /four sub-panel -->
 
-    <hr class="divider">
-    <div class="section-label">Step-by-step procedure</div>
-    <ol class="steps">
-      <li><span class="step-n">01</span><div class="step-body">Receive VP confirmation. Note client surname, pax, travel dates, product code, and variant (4★ or 4S, 5 or 7 nts).<div class="step-note">Check the Boat Tickets tab in the pivot for any existing entry before proceeding.</div></div></li>
-      <li><span class="step-n">02</span><div class="step-body">Check availability at primary hotels. Start with Pallanza (Maggiore) and Barchetta (Como). For Garda, try Acquaviva then Donna Silvia. Work down the alternative list if unavailable.</div></li>
-      <li><span class="step-n">03</span><div class="step-body">Reserve hotels via the correct OTA. Record invoice references and batch totals in the pivot DETAILS column (e.g. "in 1622.07").</div></li>
-      <li><span class="step-n">04</span><div class="step-body">Book Navigazione Laghi boat tickets.
-        <div class="step-note" style="color:var(--warn-txt);font-weight:500;">⚠ The Boat Ticket app is NOT in production — Nexi payment session-bound issue unresolved. Book directly with Navigazione Laghi; keep the same browser session open until payment completes.</div>
-      </div></li>
-      <li><span class="step-n">05</span><div class="step-body">Book wine tasting via BHI B2B system (manual). Note supplier reference.</div></li>
-      <li><span class="step-n">06</span><div class="step-body">Enter all costs in the 2026 Bookings Pivot (tab: 2026-new). One row per supplier payment. Code = client surname.</div></li>
-      <li><span class="step-n">07</span><div class="step-body">Generate voucher and send to client. Mark <code>voucher_ready = yes</code> in the Boat Tickets tab.</div></li>
-    </ol>
-  </div>
+    <!-- 4S sub-panel -->
+    <div id="lakes-sub-fours" class="sub-panel">
 
-  <!-- ═══════════════ TUSCANY ═══════════════ -->
+      <div class="diff-box">
+        <strong>4S vs 4★:</strong> The 4S tier uses the same hotel pool and itinerary structure, but only the upper-end properties within each destination have rates loaded for this category. The booking procedure is identical — the difference is which hotels you book, not how you book them. Rates are higher; the pricing chain is the same (netto × 1.06 × 1.23).
+      </div>
+
+      <div class="section-label">Hotels — 4S tier properties</div>
+      <div class="legend">
+        <span><span class="dot dot-p"></span>Primary (confirmed in 2026 bookings)</span>
+        <span><span class="dot dot-a"></span>Alternative (in 4S ratesheet)</span>
+        <span><span class="dot dot-s"></span>Garda — Desenzano / Sirmione / Peschiera area</span>
+      </div>
+
+      <div class="hotel-grid">
+
+        <div class="hotel-col">
+          <div class="col-title">Lake Maggiore · 3 nts</div>
+          <ul class="hotel-list">
+            <li class="primary">Pallanza by LVG Hotel Collection</li>
+            <li class="alt">Grand Hotel Majestic</li>
+            <li class="alt">Hotel La Palma</li>
+            <li class="alt">Îles Borromées</li>
+            <li class="alt">De Charme Laveno</li>
+            <li class="alt">Astoria</li>
+            <li class="alt">Bel Sit</li>
+            <li class="alt">Villa Paradiso</li>
+          </ul>
+          <p style="font-size:0.7rem;color:var(--mid);margin-top:0.5rem;">Same pool as 4★; only properties with 4S-level rates active.</p>
+        </div>
+
+        <div class="hotel-col">
+          <div class="col-title">Lake Como · 2 nts</div>
+          <ul class="hotel-list">
+            <li class="primary">Barchetta Excelsior</li>
+            <li class="primary">Asnigo</li>
+            <li class="primary">Como (hotel)</li>
+            <li class="alt">Castello di Casiglio</li>
+            <li class="alt">Hilton Lake Como</li>
+            <li class="alt">Sheraton Lake Como</li>
+            <li class="alt">Palace Hotel Lake Como</li>
+            <li class="alt">Metropole Suisse</li>
+            <li class="alt">Grand Hotel Menaggio</li>
+            <li class="alt">Belvedere (Menaggio)</li>
+            <li class="alt">Griso Collection</li>
+            <li class="alt">Villa Flori</li>
+            <li class="alt">Hotel Villa Cipressi</li>
+            <li class="alt">Royal Victoria</li>
+          </ul>
+        </div>
+
+        <div class="hotel-col">
+          <div class="col-title">Lake Garda · 2 nts (7 nts only)</div>
+          <ul class="hotel-list">
+            <li class="primary garda-south">Acquaviva del Garda <span style="font-size:0.65rem;color:var(--orange)">· Desenzano</span></li>
+            <li class="primary garda-south">The Ziba Hotel & Spa <span style="font-size:0.65rem;color:var(--orange)">· Peschiera</span></li>
+            <li class="primary garda-south">Donna Silvia <span style="font-size:0.65rem;color:var(--orange)">· Manerba/Desenzano area</span></li>
+
+            <li class="sub-heading">Sirmione</li>
+            <li class="alt garda-south">Hotel Ocelle Thermae & Spa</li>
+            <li class="alt garda-south">Alevic Hotel Sirmione</li>
+            <li class="alt garda-south">Hotel Continental Wellness & Spa</li>
+            <li class="alt garda-south">Hotel Sirmione Terme</li>
+
+            <li class="sub-heading">Desenzano / Peschiera</li>
+            <li class="alt garda-south">Hotel Europa Skypool & Panorama</li>
+            <li class="alt garda-south">Kristal Palace</li>
+            <li class="alt garda-south">Le Ali del Frassino</li>
+
+            <li class="sub-heading">Other lake shore</li>
+            <li class="alt">Grand Hotel Riva</li>
+            <li class="alt">Du Lac et Du Parc</li>
+            <li class="alt">Grand Hotel Liberty</li>
+            <li class="alt">Savoy Palace</li>
+            <li class="alt">Monastero Resort & Spa</li>
+            <li class="alt">Splendid Sole</li>
+            <li class="alt">Garda Bellevue</li>
+            <li class="alt">Villa Arcadio Hotel & Resort</li>
+          </ul>
+        </div>
+
+      </div><!-- /hotel-grid -->
+
+      <div class="section-label">Experiences included</div>
+      <div class="exp-row">
+        <span class="exp-tag exp-blue">Navigazione Laghi — Maggiore boat (all variants)</span>
+        <span class="exp-tag exp-blue">Navigazione Laghi — Como cruise (7 nts only)</span>
+        <span class="exp-tag exp-orange">Wine tasting — BHI B2B manual (all variants)</span>
+        <span class="exp-tag exp-blue">Sirm boat — Garda (select packages)</span>
+      </div>
+
+      <hr class="divider">
+      <div class="section-label">Step-by-step procedure</div>
+      <p class="step-note" style="margin-bottom:0.75rem;">Identical to 4★ — same OTAs, same steps, same pivot entry logic. Differences: higher netto rates, upper-tier hotel selection only.</p>
+      <ol class="steps">
+        <li><span class="step-n">01</span><div class="step-body">Receive VP confirmation. Confirm it is the 4S variant (product name contains "4S" or "Superior"). Note pax, travel dates, and duration (5 or 7 nts).</div></li>
+        <li><span class="step-n">02</span><div class="step-body">Check availability at 4S-tier primary hotels. Pallanza (Maggiore), Barchetta or Asnigo (Como), Acquaviva or Ziba in the Desenzano/Peschiera area (Garda).<div class="step-note">Do not fall back to 4★-only hotels (e.g. Axolute Comfort, BW Leonardo da Vinci) — these are outside the 4S tier.</div></div></li>
+        <li><span class="step-n">03</span><div class="step-body">Reserve via the correct OTA. Log invoice refs and batch totals in pivot DETAILS column.</div></li>
+        <li><span class="step-n">04</span><div class="step-body">Book Navigazione Laghi boat tickets directly (not via the app — Nexi issue still open).</div></li>
+        <li><span class="step-n">05</span><div class="step-body">Book wine tasting via BHI B2B (manual). Note reference.</div></li>
+        <li><span class="step-n">06</span><div class="step-body">Enter all costs in pivot (tab: 2026-new). Code = client surname.</div></li>
+        <li><span class="step-n">07</span><div class="step-body">Send voucher. Mark <code>voucher_ready = yes</code> in Boat Tickets tab.</div></li>
+      </ol>
+
+    </div><!-- /fours sub-panel -->
+
+  </div><!-- /panel-lakes -->
+
+  <!-- ═══ TUSCANY ═══ -->
   <div id="panel-tuscany" class="tab-panel">
-
-    <p class="step-note" style="margin-bottom:1.25rem;font-size:0.8rem;color:var(--mid);">
-      VP contact: <strong style="color:var(--ink)">Antonella</strong> &nbsp;·&nbsp;
-      5 nts (Florence + Pisa) or 7 nts (+ Siena) &nbsp;·&nbsp;
-      Aug 2026 – Apr 2027 &nbsp;·&nbsp; Release: 14 days &nbsp;·&nbsp; Allotment: 5 rooms
-    </p>
+    <p class="pkg-meta">VP contact: <strong>Antonella</strong> &nbsp;·&nbsp; 5 nts (Florence + Pisa) or 7 nts (+ Siena) &nbsp;·&nbsp; Aug 2026 – Apr 2027 &nbsp;·&nbsp; Release: 14 days &nbsp;·&nbsp; Allotment: 5 rooms</p>
 
     <div class="section-label">Hotels</div>
     <div class="legend">
-      <span><span class="dot dot-p"></span> Primary (contracted)</span>
-      <span><span class="dot dot-a"></span> Alternative</span>
+      <span><span class="dot dot-p"></span>Primary (contracted)</span>
+      <span><span class="dot dot-a"></span>Alternative</span>
     </div>
-
     <div class="hotel-grid">
       <div class="hotel-col">
         <div class="col-title">Florence · 3 nts</div>
@@ -461,32 +672,22 @@
       <li><span class="step-n">03</span><div class="step-body">For 7 nts: book Siena hotel (2 nts). Standard months → Executive Hotel Siena. April → Palazzo dei Priori.</div></li>
       <li><span class="step-n">04</span><div class="step-body">Book Pisa hotel (2 nts): Hotel Bologna for all months.</div></li>
       <li><span class="step-n">05</span><div class="step-body">Book Gondola Fiorentina river tour (all variants, €59pp) via Servantrip. Note booking reference.</div></li>
-      <li><span class="step-n">06</span><div class="step-body">For 7 nts: book Sienese wine tasting (€25pp). Contact Montechiaro or Poggiopiano direct. Record as a separate pivot row.</div></li>
-      <li><span class="step-n">07</span><div class="step-body">Enter all costs in pivot (note batch invoice refs in DETAILS where applicable) and send voucher pack to client.</div></li>
+      <li><span class="step-n">06</span><div class="step-body">For 7 nts: book Sienese wine tasting (€25pp). Contact Montechiaro or Poggiopiano direct. Record as separate pivot row.</div></li>
+      <li><span class="step-n">07</span><div class="step-body">Enter all costs in pivot (note batch invoice refs in DETAILS) and send voucher pack.</div></li>
     </ol>
-
     <div class="alert alert-info">⚑ 14-day release and 5-room allotment per property — check availability early for Aug and Apr.</div>
   </div>
 
-  <!-- ═══════════════ SARDINIA ═══════════════ -->
+  <!-- ═══ SARDINIA ═══ -->
   <div id="panel-sardinia" class="tab-panel">
-
-    <p class="step-note" style="margin-bottom:1rem;font-size:0.8rem;color:var(--mid);">
-      VP contact: <strong style="color:var(--ink)">Charline</strong> &nbsp;·&nbsp;
-      7 / 10 / 12 nts &nbsp;·&nbsp;
-      Cagliari → Castelsardo/Alghero → Arzachena/Olbia &nbsp;·&nbsp;
-      Car hire always included &nbsp;·&nbsp;
-      Chain: netto × 1.05 × 1.23 = VP price
-    </p>
-
-    <div class="alert alert-warn">⚠ <strong>Negative margin flagged on some 2026 bookings.</strong> Always verify margin is positive before confirming. Flag to Concezio if hotel costs exceed VP sell price.</div>
+    <p class="pkg-meta">VP contact: <strong>Charline</strong> &nbsp;·&nbsp; 7 / 10 / 12 nts &nbsp;·&nbsp; Cagliari → Castelsardo/Alghero → Arzachena/Olbia &nbsp;·&nbsp; Car hire always included &nbsp;·&nbsp; Chain: netto × 1.05 × 1.23</p>
+    <div class="alert alert-warn">⚠ <strong>Negative margin flagged on some 2026 bookings.</strong> Always verify margin is positive (netto × 1.05 × 1.23 = VP price) before confirming. Flag to Concezio if hotel costs exceed sell price.</div>
 
     <div class="section-label">Hotels</div>
     <div class="legend">
-      <span><span class="dot dot-p"></span> Primary / FIT contracted</span>
-      <span><span class="dot dot-a"></span> Alternative (in ratesheet with rates)</span>
+      <span><span class="dot dot-p"></span>Primary / FIT contracted</span>
+      <span><span class="dot dot-a"></span>Alternative (in ratesheet with rates)</span>
     </div>
-
     <div class="hotel-grid">
       <div class="hotel-col">
         <div class="col-title">Dest 1 — Cagliari · 3 nts (7) / 4 nts (10/12)</div>
@@ -548,32 +749,25 @@
     <ol class="steps">
       <li><span class="step-n">01</span><div class="step-body">Receive booking. Identify night variant (7 / 10 / 12) and travel month. FIT rates for T Hotel and Rina Hotel are fixed — always try these first.</div></li>
       <li><span class="step-n">02</span><div class="step-body">Book Cagliari hotel. T Hotel FIT first. If unavailable, use AIC or Hotelston for alternatives.</div></li>
-      <li><span class="step-n">03</span><div class="step-body">Book Castelsardo / Alghero hotel. Rina Hotel FIT first. If unavailable: Hotel Catalunya or Villa Barbarina via Hotelston or direct.</div></li>
+      <li><span class="step-n">03</span><div class="step-body">Book Castelsardo / Alghero hotel. Rina Hotel FIT first. If unavailable: Hotel Catalunya or Villa Barbarina.</div></li>
       <li><span class="step-n">04</span><div class="step-body">Book Arzachena / Olbia hotel. Hotel Panorama first. Alternatives: Mercure Olbia, Essenza, For You.</div></li>
-      <li><span class="step-n">05</span><div class="step-body">Book car hire (always included). Check the pivot SUPPLEMENTS column for the exact car-day count — it may exceed the number of nights.<div class="step-note">Car hire supplier: check per booking. Record reference in pivot.</div></div></li>
-      <li><span class="step-n">06</span><div class="step-body">Book excursions via Escursì (never Servantrip for Sardinia).<div class="step-note">7 nts → wine tasting + Tavolara boat &nbsp;·&nbsp; 10 nts → + cooking class Cagliari &nbsp;·&nbsp; 12 nts → all three</div></div></li>
-      <li><span class="step-n">07</span><div class="step-body">Verify margin is positive (netto × 1.05 × 1.23 = VP price) before confirming. Flag to Concezio if costs exceed sell price.</div></li>
-      <li><span class="step-n">08</span><div class="step-body">Enter all costs in pivot and send voucher pack to client.</div></li>
+      <li><span class="step-n">05</span><div class="step-body">Book car hire (always included). Check pivot SUPPLEMENTS column for exact car-day count — may exceed nights.</div></li>
+      <li><span class="step-n">06</span><div class="step-body">Book excursions via Escursì.<div class="step-note">7 nts → wine + Tavolara · 10 nts → + cooking class Cagliari · 12 nts → all three</div></div></li>
+      <li><span class="step-n">07</span><div class="step-body">Verify margin is positive before confirming. Flag to Concezio if costs exceed sell price.</div></li>
+      <li><span class="step-n">08</span><div class="step-body">Enter all costs in pivot and send voucher pack.</div></li>
     </ol>
   </div>
 
-  <!-- ═══════════════ LIGURIA ═══════════════ -->
+  <!-- ═══ LIGURIA ═══ -->
   <div id="panel-liguria" class="tab-panel">
-
-    <p class="step-note" style="margin-bottom:1.25rem;font-size:0.8rem;color:var(--mid);">
-      VP contact: <strong style="color:var(--ink)">Antonella</strong> &nbsp;·&nbsp;
-      5 or 7 nts &nbsp;·&nbsp; 2-stop itinerary: Cinque Terre / La Spezia area → Rapallo / Sestri Levante / Portovenere &nbsp;·&nbsp;
-      Sep 2026 – Jun 2027 &nbsp;·&nbsp; No car hire
-    </p>
-
-    <div class="alert alert-info">⚑ Stop combination varies by flash sale window (FS 04/26, Jun, Jul, Aug 2027). Check the relevant subfolder in Drive for any specific allocations before booking.</div>
+    <p class="pkg-meta">VP contact: <strong>Antonella</strong> &nbsp;·&nbsp; 5 or 7 nts &nbsp;·&nbsp; 2-stop: Cinque Terre / La Spezia → Rapallo / Sestri Levante / Portovenere &nbsp;·&nbsp; Sep 2026 – Jun 2027 &nbsp;·&nbsp; No car hire</p>
+    <div class="alert alert-info">⚑ Stop combination varies by flash sale window (FS 04/26, Jun, Jul, Aug 2027). Check the relevant Drive subfolder before booking.</div>
 
     <div class="section-label">Hotels</div>
     <div class="legend">
-      <span><span class="dot dot-p"></span> Primary (used in 2026)</span>
-      <span><span class="dot dot-a"></span> Alternative (in ratesheet)</span>
+      <span><span class="dot dot-p"></span>Primary (used in 2026)</span>
+      <span><span class="dot dot-a"></span>Alternative (in ratesheet)</span>
     </div>
-
     <div class="hotel-grid">
       <div class="hotel-col">
         <div class="col-title">Stop 1A — La Spezia / Cinque Terre (QLP1)</div>
@@ -589,7 +783,7 @@
         <ul class="hotel-list">
           <li class="primary">Hotel Palme (Camogli)</li>
         </ul>
-        <p class="step-note" style="margin-top:0.4rem;">Used when routing goes via the Camogli / Nervi area rather than La Spezia.</p>
+        <p class="step-note" style="margin-top:0.4rem;">Used when routing goes via Camogli rather than La Spezia.</p>
       </div>
       <div class="hotel-col">
         <div class="col-title">Stop 2A — Sestri Levante / Rapallo (SSRP1)</div>
@@ -606,30 +800,26 @@
           <li class="primary">Hotel Cristallo Park</li>
           <li class="alt">Hotiday Room Collection – Porto Venere</li>
         </ul>
-        <p class="step-note" style="margin-top:0.4rem;">Genova transit hotels (GOA1 sheet) available if needed: AC Hotel Genova by Marriott, Astor, BW Moderno Verdi, BW Plus City Hotel.</p>
+        <p class="step-note" style="margin-top:0.4rem;">Genova transit (GOA1): AC Hotel Genova by Marriott, Astor, BW Moderno Verdi, BW Plus City Hotel.</p>
       </div>
     </div>
 
-    <div class="alert alert-warn" style="margin-top:0;">⚠ The Rapallo–Ameglia route uses a separate fixed-period contract (<code>Rapallo-Ameglia VP 2026.xlsx</code>) — not the standard per-night ratesheet. Rates are pre-agreed by period; apply those directly.</div>
+    <div class="alert alert-warn" style="margin-top:0;">⚠ Rapallo–Ameglia route uses a separate fixed-period contract (<code>Rapallo-Ameglia VP 2026.xlsx</code>) — not the per-night ratesheet. Apply those rates directly.</div>
 
     <hr class="divider">
     <div class="section-label">Step-by-step procedure</div>
     <ol class="steps">
-      <li><span class="step-n">01</span><div class="step-body">Receive VP booking. Check duration (5 or 7 nts), travel month, and flash sale window — the 2-stop combination varies. Check the Drive subfolder for that sale first.</div></li>
-      <li><span class="step-n">02</span><div class="step-body">Book Stop 1: CDH Hotel La Spezia or Firenze e Continentale for the La Spezia/Cinque Terre route; Hotel Palme if routing via Camogli.</div></li>
-      <li><span class="step-n">03</span><div class="step-body">Book Stop 2: Grande Albergo or Grand Hotel dei Castelli for Sestri Levante; Hotel Cristallo Park for Portovenere/Lerici.<div class="step-note">For Rapallo–Ameglia route, apply the pre-agreed period rates from <code>Rapallo-Ameglia VP 2026.xlsx</code>.</div></div></li>
-      <li><span class="step-n">04</span><div class="step-body">No car hire — this is a train and walking package.</div></li>
+      <li><span class="step-n">01</span><div class="step-body">Receive VP booking. Check duration (5 or 7 nts), month, and flash sale window — the 2-stop combination varies.</div></li>
+      <li><span class="step-n">02</span><div class="step-body">Book Stop 1: CDH Hotel La Spezia or Firenze e Continentale for the La Spezia route; Hotel Palme if routing via Camogli.</div></li>
+      <li><span class="step-n">03</span><div class="step-body">Book Stop 2: Grande Albergo or Grand Hotel dei Castelli for Sestri Levante; Hotel Cristallo Park for Portovenere/Lerici.<div class="step-note">For Rapallo–Ameglia: apply pre-agreed period rates from <code>Rapallo-Ameglia VP 2026.xlsx</code>.</div></div></li>
+      <li><span class="step-n">04</span><div class="step-body">No car hire — train and walking package.</div></li>
       <li><span class="step-n">05</span><div class="step-body">Enter all costs in pivot and send voucher to client.</div></li>
     </ol>
   </div>
 
-  <!-- ═══════════════ VENETO ═══════════════ -->
+  <!-- ═══ VENETO ═══ -->
   <div id="panel-veneto" class="tab-panel">
-
-    <p class="step-note" style="margin-bottom:1.25rem;font-size:0.8rem;color:var(--mid);">
-      No hotel component &nbsp;·&nbsp; 4 bookings per client (3 Servantrip excursions + 1 BHI B2B wine tasting) &nbsp;·&nbsp;
-      Vouchers merged via <code>/vouchers</code> PDF tool in the Excursion Booking App
-    </p>
+    <p class="pkg-meta">No hotel component &nbsp;·&nbsp; 4 bookings per client (3 Servantrip + 1 BHI B2B wine tasting) &nbsp;·&nbsp; Vouchers merged via <code>/vouchers</code> PDF tool in the Excursion Booking App</p>
 
     <div class="hotel-grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));">
       <div class="hotel-col">
@@ -652,9 +842,9 @@
         <div class="col-title">Booking system</div>
         <ul class="hotel-list">
           <li>Excursion Booking App</li>
-          <li style="font-size:0.72rem;color:var(--mid);">servantrip-app-production.up.railway.app</li>
+          <li style="font-size:0.7rem;color:var(--mid);">servantrip-app-production.up.railway.app</li>
           <li>Servantrip API v2.1</li>
-          <li style="font-size:0.72rem;color:var(--mid);">Confirm sandbox vs production with Concezio before booking</li>
+          <li style="font-size:0.7rem;color:var(--mid);">Confirm sandbox vs production with Concezio before booking</li>
         </ul>
       </div>
     </div>
@@ -664,15 +854,15 @@
     <ol class="steps">
       <li><span class="step-n">01</span><div class="step-body">Receive VP booking. Note client details, travel dates, pax count, and product code.</div></li>
       <li><span class="step-n">02</span><div class="step-body">Open the Excursion Booking App. Use the VP portal scraper to pre-fill client data if available.</div></li>
-      <li><span class="step-n">03</span><div class="step-body">Search and book each of the 3 Servantrip excursions (Venice, Verona, Padua) individually. Confirm availability for each date.<div class="step-note">Confirm with Concezio which environment (sandbox vs production) is active before booking.</div></div></li>
-      <li><span class="step-n">04</span><div class="step-body">Book wine tasting separately via BHI B2B (manual process). Note supplier reference.</div></li>
-      <li><span class="step-n">05</span><div class="step-body">Collect all 4 vouchers. Merge into a single PDF using the <code>/vouchers</code> PDF merge UI in the Excursion Booking App.</div></li>
-      <li><span class="step-n">06</span><div class="step-body">Enter all 4 costs in the pivot (one row per booking, supplier = servantrip for city excursions). Send merged PDF voucher to client.</div></li>
+      <li><span class="step-n">03</span><div class="step-body">Search and book each of the 3 Servantrip excursions (Venice, Verona, Padua) individually. Confirm availability for each date.<div class="step-note">Confirm with Concezio whether sandbox or production is active before booking.</div></div></li>
+      <li><span class="step-n">04</span><div class="step-body">Book wine tasting separately via BHI B2B (manual). Note supplier reference.</div></li>
+      <li><span class="step-n">05</span><div class="step-body">Collect all 4 vouchers. Merge into a single PDF using the <code>/vouchers</code> PDF merge UI in the app.</div></li>
+      <li><span class="step-n">06</span><div class="step-body">Enter all 4 costs in pivot (one row per booking). Send merged PDF voucher to client.</div></li>
     </ol>
   </div>
 
   <div class="shell-footer">
-    VP pricing chains: Lakes/Tuscany/Liguria/Veneto → netto × 1.06 × 1.23 &nbsp;·&nbsp; Sardinia → netto × 1.05 × 1.23
+    VP pricing chains: Lakes / Tuscany / Liguria / Veneto → netto × 1.06 × 1.23 &nbsp;·&nbsp; Sardinia → netto × 1.05 × 1.23
   </div>
 
 </div><!-- /shell -->
@@ -682,6 +872,14 @@ function show(id) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function showSub(panel, sub) {
+  const prefix = panel + '-sub-';
+  document.querySelectorAll('[id^="' + prefix + '"]').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#panel-' + panel + ' .sub-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(prefix + sub).classList.add('active');
   event.currentTarget.classList.add('active');
 }
 </script>
