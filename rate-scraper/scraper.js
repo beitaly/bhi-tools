@@ -498,43 +498,60 @@ app.get('/', (req, res) => res.json({
 
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
-// Debug: login and dump all interactive elements on the search page
-app.get('/debug/form', async (req, res) => {
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  try {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await login(page);
-    // Wait a beat for any JS widgets to initialise
-    await page.waitForTimeout(3000);
-    const info = await page.evaluate(() => {
-      const elements = Array.from(document.querySelectorAll(
-        'input, select, textarea, button, [role="combobox"], [role="listbox"], [role="textbox"], [contenteditable]'
-      ));
-      return elements.map(el => ({
-        tag: el.tagName,
-        type: el.type || '',
-        name: el.name || '',
-        id: el.id || '',
-        placeholder: el.placeholder || '',
-        className: (el.className || '').substring(0, 80),
-        role: el.getAttribute('role') || '',
-        ariaLabel: el.getAttribute('aria-label') || '',
-        text: (el.textContent || '').trim().substring(0, 60),
-        visible: el.offsetParent !== null,
-      }));
-    });
-    // Also grab a snippet of the form HTML
-    const formHtml = await page.evaluate(() => {
-      const form = document.querySelector('form');
-      return form ? form.outerHTML.substring(0, 4000) : document.body.innerHTML.substring(0, 4000);
-    });
-    res.json({ url: page.url(), elements: info, formHtmlSnippet: formHtml });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  } finally {
-    await browser.close();
+// Debug: login and dump all interactive elements on the search page (async)
+// GET /debug/form  → starts the inspection, returns immediately
+// GET /debug/result → returns the saved JSON once it's ready
+const DEBUG_FILE = path.join(DOWNLOAD_DIR, '_debug_form.json');
+
+app.get('/debug/form', (req, res) => {
+  res.json({ status: 'started', poll: '/debug/result', note: 'check /debug/result in ~90 seconds' });
+  // Run in background
+  (async () => {
+    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    try {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await login(page);
+      await page.waitForTimeout(3000); // let JS widgets initialise
+      const info = await page.evaluate(() => {
+        const elements = Array.from(document.querySelectorAll(
+          'input, select, textarea, button, [role="combobox"], [role="listbox"], [role="textbox"], [contenteditable]'
+        ));
+        return elements.map(el => ({
+          tag: el.tagName,
+          type: el.type || '',
+          name: el.name || '',
+          id: el.id || '',
+          placeholder: el.placeholder || '',
+          className: (el.className || '').substring(0, 100),
+          role: el.getAttribute('role') || '',
+          ariaLabel: el.getAttribute('aria-label') || '',
+          text: (el.textContent || '').trim().substring(0, 80),
+          visible: el.offsetParent !== null,
+        }));
+      });
+      const formHtml = await page.evaluate(() => {
+        const form = document.querySelector('form');
+        return form ? form.outerHTML.substring(0, 6000) : document.body.innerHTML.substring(0, 6000);
+      });
+      fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+      fs.writeFileSync(DEBUG_FILE, JSON.stringify({ url: page.url(), ts: new Date().toISOString(), elements: info, formHtmlSnippet: formHtml }, null, 2));
+      console.log('  ✓ Debug form dump saved to _debug_form.json');
+    } catch (err) {
+      fs.writeFileSync(DEBUG_FILE, JSON.stringify({ error: err.message, ts: new Date().toISOString() }, null, 2));
+      console.error('  ✗ Debug error:', err.message);
+    } finally {
+      await browser.close();
+    }
+  })();
+});
+
+app.get('/debug/result', (req, res) => {
+  if (!fs.existsSync(DEBUG_FILE)) {
+    return res.json({ status: 'not ready yet — try again in 30 seconds' });
   }
+  const data = JSON.parse(fs.readFileSync(DEBUG_FILE, 'utf8'));
+  res.json(data);
 });
 
 // List all downloaded files
