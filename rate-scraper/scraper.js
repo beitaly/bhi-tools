@@ -325,33 +325,92 @@ async function login(page) {
 async function runBatch(page, batch, downloadDir) {
   console.log(`\n  🔍  ${batch.label} (${batch.hotels.length} hotel${batch.hotels.length > 1 ? 's' : ''})`);
 
-  // Navigate to search — adjust URL/path if needed
-  await page.goto(`${BASE_URL}/search`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // Navigate to search page (login + search are both on index.php)
+  await page.goto(`${BASE_URL}/index.php`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-  // Clear existing hotel selections and enter batch
-  // These selectors are illustrative — adjust once you can inspect the live portal
-  for (let i = 0; i < batch.hotels.length; i++) {
-    const hotelInput = page.locator(`input[name="hotel_${i + 1}"], .hotel-search-input`).nth(i);
-    await hotelInput.fill(batch.hotels[i]);
-    // Wait for autocomplete suggestion and select first match
-    const suggestion = page.locator('.autocomplete-suggestion, .dropdown-item').first();
-    await suggestion.waitFor({ timeout: 5000 }).catch(() => null);
-    await suggestion.click().catch(() => null);
+  // Wait for the search form — the "Select Hotels" typeahead input
+  // The form is on the same page as login; after login it shows the search form
+  await page.waitForSelector('input[placeholder*="hotel"], input[placeholder*="Hotel"]', { timeout: 15000 });
+
+  // The "Select Hotels" field is a typeahead — type each hotel name, wait for
+  // the dropdown, click the first suggestion, then type the next one.
+  const hotelInput = page.locator('input[placeholder*="hotel"], input[placeholder*="Hotel"]').first();
+
+  for (const hotelName of batch.hotels) {
+    await hotelInput.click();
+    await hotelInput.fill(''); // clear any previous partial input
+    await hotelInput.type(hotelName.substring(0, 4), { delay: 80 }); // type first 4 chars to trigger suggestions
+    console.log(`    → Typing "${hotelName.substring(0, 4)}" for: ${hotelName}`);
+
+    // Wait for autocomplete dropdown
+    const suggestion = page.locator(
+      'li[role="option"], .autocomplete-item, .select2-result, .ui-menu-item, ' +
+      '[class*="suggestion"], [class*="dropdown"] li, [class*="option"]'
+    ).first();
+
+    try {
+      await suggestion.waitFor({ timeout: 8000 });
+      // Try to click the item that most closely matches the full hotel name
+      const allSuggestions = await page.locator(
+        'li[role="option"], .autocomplete-item, .select2-result, .ui-menu-item, ' +
+        '[class*="suggestion"], [class*="dropdown"] li, [class*="option"]'
+      ).all();
+      let clicked = false;
+      for (const s of allSuggestions) {
+        const text = (await s.textContent() || '').trim();
+        if (text && hotelName.toLowerCase().includes(text.toLowerCase().substring(0, 6))) {
+          await s.click();
+          clicked = true;
+          break;
+        }
+      }
+      if (!clicked) {
+        // Fallback: click the first suggestion
+        await suggestion.click();
+      }
+      console.log(`    ✓ Selected: ${hotelName}`);
+      await page.waitForTimeout(500); // small pause between selections
+    } catch (e) {
+      console.warn(`    ⚠  No autocomplete suggestion for: ${hotelName} — ${e.message}`);
+      // Press Escape to close any open dropdown and continue
+      await page.keyboard.press('Escape');
+    }
   }
 
-  // Click the year-long search button
-  await page.click('button:has-text("Annual"), button:has-text("Year"), button:has-text("Anno"), a:has-text("Annual search")');
-  await page.waitForNavigation({ waitUntil: 'networkidle' });
+  // Click "Schedule search by year" button
+  console.log('    → Clicking "Schedule search by year"…');
+  await page.click('button:has-text("Schedule search by year"), input[value*="Schedule search by year"]');
 
-  // On the status/results page, wait for the download link and click it
-  const downloadLink = page.locator('a:has-text("Download"), a:has-text("XLS"), a[href$=".xls"]').first();
-  await downloadLink.waitFor({ timeout: 60000 }); // rate searches can take a moment
+  // The form submission takes us to (or reloads to) status.php
+  // Use a navigation wait with fallback
+  await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 })
+    .catch(() => page.waitForTimeout(5000));
+
+  // If we're not on status.php yet, click "Search status" link/button
+  if (!page.url().includes('status.php')) {
+    console.log('    → Navigating to status.php…');
+    const statusBtn = page.locator('button:has-text("Search status"), a:has-text("Search status"), a[href*="status"]').first();
+    await statusBtn.click({ timeout: 10000 }).catch(async () => {
+      await page.goto(`${BASE_URL}/status.php`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    });
+    await page.waitForTimeout(3000);
+  }
+
+  // On status.php — wait for download link (XLS file for this search)
+  // The search runs server-side so it may take a minute; poll for up to 5 minutes
+  console.log('    → Waiting for XLS download link on status page…');
+  const downloadLink = page.locator(
+    'a[href$=".xls"], a[href$=".xlsx"], a:has-text("Download"), a:has-text("XLS"), a:has-text("Excel")'
+  ).first();
+
+  await downloadLink.waitFor({ timeout: 300000 }); // up to 5 min for server-side search
 
   const date = new Date().toISOString().slice(0, 10);
   const safeName = batch.label.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
   const fileName = `bhi_rates_${batch.destination}_${safeName}_${date}.xls`;
   const filePath = path.join(downloadDir, fileName);
 
+  console.log('    → Downloading XLS…');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     downloadLink.click(),
