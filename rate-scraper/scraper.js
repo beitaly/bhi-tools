@@ -498,6 +498,45 @@ app.get('/', (req, res) => res.json({
 
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
+// Debug: login and dump all interactive elements on the search page
+app.get('/debug/form', async (req, res) => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await login(page);
+    // Wait a beat for any JS widgets to initialise
+    await page.waitForTimeout(3000);
+    const info = await page.evaluate(() => {
+      const elements = Array.from(document.querySelectorAll(
+        'input, select, textarea, button, [role="combobox"], [role="listbox"], [role="textbox"], [contenteditable]'
+      ));
+      return elements.map(el => ({
+        tag: el.tagName,
+        type: el.type || '',
+        name: el.name || '',
+        id: el.id || '',
+        placeholder: el.placeholder || '',
+        className: (el.className || '').substring(0, 80),
+        role: el.getAttribute('role') || '',
+        ariaLabel: el.getAttribute('aria-label') || '',
+        text: (el.textContent || '').trim().substring(0, 60),
+        visible: el.offsetParent !== null,
+      }));
+    });
+    // Also grab a snippet of the form HTML
+    const formHtml = await page.evaluate(() => {
+      const form = document.querySelector('form');
+      return form ? form.outerHTML.substring(0, 4000) : document.body.innerHTML.substring(0, 4000);
+    });
+    res.json({ url: page.url(), elements: info, formHtmlSnippet: formHtml });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await browser.close();
+  }
+});
+
 // List all downloaded files
 app.get('/files', (req, res) => {
   try {
