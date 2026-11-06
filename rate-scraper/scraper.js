@@ -340,7 +340,11 @@ async function runBatch(page, batch, downloadDir) {
     const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1); // nth(1) = hotels (nth(0) = cities)
     await searchBox.click();
     await searchBox.fill('');
-    await searchBox.type(hotelName.substring(0, 5), { delay: 80 });
+    // Skip generic words like "Hotel", "Villa", "Grand" — use a distinctive part of the name
+    const words = hotelName.split(' ').filter(w => !['hotel','villa','grand','relais','resort','palace','spa'].includes(w.toLowerCase()));
+    const searchTerm = (words[0] || hotelName).substring(0, 10);
+    console.log(`    → Search term: "${searchTerm}"`);
+    await searchBox.type(searchTerm, { delay: 80 });
 
     // Wait for Select2 to finish searching (clear the "Searching…" state)
     await page.waitForFunction(() => {
@@ -350,13 +354,16 @@ async function runBatch(page, batch, downloadDir) {
 
     // Find and click the best matching option
     const options = await page.locator('.select2-results__option').all();
+    // Match: check if option text contains any significant word from the hotel name
+    const sigWords = hotelName.toLowerCase().split(' ')
+      .filter(w => w.length > 3 && !['hotel','villa','grand','relais','resort','palace','spa','best','western'].includes(w));
     let matched = false;
     for (const opt of options) {
-      const text = (await opt.textContent() || '').trim();
-      if (text.toLowerCase().includes(hotelName.toLowerCase().substring(0, 8))) {
+      const text = (await opt.textContent() || '').trim().toLowerCase();
+      if (sigWords.some(w => text.includes(w))) {
         await opt.click();
         matched = true;
-        console.log(`    ✓ Matched: "${text}"`);
+        console.log(`    ✓ Matched: "${(await opt.textContent() || '').trim()}"`);
         break;
       }
     }
