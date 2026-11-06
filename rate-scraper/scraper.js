@@ -158,30 +158,31 @@ const SEARCH_BATCHES = [
   },
 
   // ── TOSCANA ──────────────────────────────────────────────────────────────
+  // Portal format: DISTINCTIVE NAME - CITY (English city names, no "Hotel" prefix)
   {
     destination: 'toscana',
     label: 'Florence',
-    hotels: ['Hotel Grifone Firenze', 'Villa Stanley', 'Villa Olmi MGallery'],
+    hotels: ['GRIFONE - FLORENCE', 'STANLEY - FLORENCE', 'VILLA OLMI - FLORENCE'],
   },
   {
     destination: 'toscana',
     label: 'Florence alternatives',
-    hotels: ['La Locanda dellAmorosa', 'Fattoria Belvedere'],
+    hotels: ['LOCANDA DELL\'AMOROSA - SINALUNGA', 'FATTORIA BELVEDERE - FLORENCE'],
   },
   {
     destination: 'toscana',
     label: 'Siena / Chianti',
-    hotels: ['Executive Hotel Siena', 'Palazzo dei Priori', 'Il Chiostro del Carmine'],
+    hotels: ['EXECUTIVE - SIENA', 'PALAZZO DEI PRIORI - VOLTERRA', 'CHIOSTRO DEL CARMINE - SIENA'],
   },
   {
     destination: 'toscana',
     label: 'Siena alternatives',
-    hotels: ['Montaperti', 'Relais degli Usignoli'],
+    hotels: ['MONTAPERTI - SIENA', 'DEGLI USIGNOLI - FIRENZE'],
   },
   {
     destination: 'toscana',
     label: 'Pisa',
-    hotels: ['Hotel Bologna', 'San Lino'],
+    hotels: ['BOLOGNA - PISA', 'SAN LINO - VOLTERRA'],
   },
 
   // ── SARDEGNA ─────────────────────────────────────────────────────────────
@@ -340,10 +341,11 @@ async function runBatch(page, batch, downloadDir) {
     const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1); // nth(1) = hotels (nth(0) = cities)
     await searchBox.click();
     await searchBox.fill('');
-    // Skip generic words like "Hotel", "Villa", "Grand" — use a distinctive part of the name
-    const words = hotelName.split(' ').filter(w => !['hotel','villa','grand','relais','resort','palace','spa'].includes(w.toLowerCase()));
-    const searchTerm = (words[0] || hotelName).substring(0, 10);
-    console.log(`    → Search term: "${searchTerm}"`);
+    // Hotel names are in portal format: "DISTINCTIVE NAME - CITY"
+    // Search using the first significant word (before the dash)
+    const beforeDash = hotelName.split(' - ')[0].trim();
+    const searchTerm = beforeDash.split(' ')[0].substring(0, 10);
+    console.log(`    → Search term: "${searchTerm}" for: ${hotelName}`);
     await searchBox.type(searchTerm, { delay: 80 });
 
     // Wait for Select2 to finish searching (clear the "Searching…" state)
@@ -354,17 +356,33 @@ async function runBatch(page, batch, downloadDir) {
 
     // Find and click the best matching option
     const options = await page.locator('.select2-results__option').all();
-    // Match: check if option text contains any significant word from the hotel name
-    const sigWords = hotelName.toLowerCase().split(' ')
-      .filter(w => w.length > 3 && !['hotel','villa','grand','relais','resort','palace','spa','best','western'].includes(w));
+    // Match: hotel names are in portal format "DISTINCTIVE - CITY"
+    // Find the option whose text matches our portal-format name most closely
+    const targetLower = hotelName.toLowerCase();
+    const targetParts = targetLower.split(' - ').map(s => s.trim());
     let matched = false;
     for (const opt of options) {
-      const text = (await opt.textContent() || '').trim().toLowerCase();
-      if (sigWords.some(w => text.includes(w))) {
+      const text = (await opt.textContent() || '').trim();
+      const textLower = text.toLowerCase();
+      // Check all parts of our name appear in the option text
+      if (targetParts.every(part => textLower.includes(part))) {
         await opt.click();
         matched = true;
-        console.log(`    ✓ Matched: "${(await opt.textContent() || '').trim()}"`);
+        console.log(`    ✓ Matched: "${text}"`);
         break;
+      }
+    }
+    // Fallback: match just the first part (before the dash)
+    if (!matched) {
+      for (const opt of options) {
+        const text = (await opt.textContent() || '').trim();
+        const textLower = text.toLowerCase();
+        if (textLower.includes(targetParts[0])) {
+          await opt.click();
+          matched = true;
+          console.log(`    ⚠ Partial match: "${text}"`);
+          break;
+        }
       }
     }
     if (!matched && options.length > 0) {
