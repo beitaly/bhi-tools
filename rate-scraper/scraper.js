@@ -586,43 +586,37 @@ app.get('/debug/hotels', (req, res) => {
       await login(page);
       await page.waitForSelector('#hotels-select', { timeout: 15000 });
 
-      // Intercept AJAX responses to capture the full hotels list
-      const allHotels = new Set();
-      page.on('response', async (response) => {
-        const url = response.url();
-        const ct = response.headers()['content-type'] || '';
-        if ((ct.includes('json') || url.includes('hotel') || url.includes('search') || url.includes('ajax'))
-            && response.status() === 200) {
-          try {
-            const text = await response.text();
-            if (text.includes('"text"') || text.includes('"name"') || text.includes('"label"')) {
-              const data = JSON.parse(text);
-              // Handle common Select2 AJAX formats
-              const items = data.results || data.items || data.hotels || data.data || (Array.isArray(data) ? data : []);
-              items.forEach(item => {
-                const name = item.text || item.name || item.label || item.title || '';
-                if (name) allHotels.add(name.trim());
-              });
-            }
-          } catch(e) {}
-        }
+      // Try 1: read all <option> tags directly from the DOM (may be pre-populated)
+      let hotels = await page.evaluate(() => {
+        const sel = document.querySelector('#hotels-select');
+        return Array.from(sel.options).map(o => o.text.trim()).filter(Boolean);
       });
 
-      // Trigger AJAX by typing a space (loads all / no filter)
-      const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1);
-      await searchBox.click();
-      await searchBox.type(' ', { delay: 50 });
-      await page.waitForTimeout(3000);
-
-      // Also try empty string trigger and a few letters to catch paginated results
-      for (const term of ['a', 'b', 'c', 'e', 'g', 'h', 'l', 'm', 'p', 'r', 's', 'v']) {
-        await searchBox.fill('');
-        await searchBox.type(term, { delay: 50 });
-        await page.waitForTimeout(1500);
+      // Try 2: if empty, dump the entire page source so we can inspect it
+      if (hotels.length === 0) {
+        const html = await page.content();
+        // Save raw HTML for inspection
+        const htmlPath = path.join(DOWNLOAD_DIR, '_page_source.html');
+        fs.writeFileSync(htmlPath, html);
+        // Also try to find any JS variable containing hotel data
+        const jsData = await page.evaluate(() => {
+          // Look for common patterns: window.hotels, window.hotelData, etc.
+          const keys = Object.keys(window).filter(k =>
+            k.toLowerCase().includes('hotel') || k.toLowerCase().includes('select')
+          );
+          const result = {};
+          keys.forEach(k => { try { result[k] = JSON.stringify(window[k]).substring(0, 500); } catch(e) {} });
+          return result;
+        });
+        // Also check all script tags for hotel data
+        const scriptData = await page.evaluate(() => {
+          return Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent.substring(0, 2000));
+        });
+        fs.writeFileSync(path.join(DOWNLOAD_DIR, '_js_data.json'), JSON.stringify({ windowVars: jsData, scripts: scriptData }, null, 2));
+        hotels = ['[see _js_data.json and _page_source.html for inspection]'];
       }
-      await page.waitForTimeout(2000);
 
-      const hotels = [...allHotels].sort();
+      hotels = hotels.sort();
       const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
       fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
       fs.writeFileSync(outPath, hotels.join('\n'));
