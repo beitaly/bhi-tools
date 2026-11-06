@@ -585,10 +585,26 @@ app.get('/debug/hotels', (req, res) => {
       const page = await context.newPage();
       await login(page);
       await page.waitForSelector('#hotels-select', { timeout: 15000 });
-      const hotels = await page.evaluate(() => {
-        const sel = document.querySelector('#hotels-select');
-        return Array.from(sel.options).map(o => o.text.trim()).filter(Boolean).sort();
-      });
+
+      // Select2 loads options via AJAX — intercept the XHR/fetch to get the full list
+      // Try typing single letters a-z to harvest all hotel names
+      const allHotels = new Set();
+      const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1);
+
+      for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
+        await searchBox.click();
+        await searchBox.fill('');
+        await searchBox.type(letter, { delay: 50 });
+        // Wait for results (not "Searching…")
+        await page.waitForFunction(() => {
+          const opts = document.querySelectorAll('.select2-results__option');
+          return opts.length > 0 && ![...opts].every(o => o.textContent.includes('Searching'));
+        }, { timeout: 8000 }).catch(() => null);
+        const opts = await page.locator('.select2-results__option').allTextContents();
+        opts.forEach(t => { if (t.trim() && !t.includes('Searching') && !t.includes('No results')) allHotels.add(t.trim()); });
+        await page.waitForTimeout(300);
+      }
+      const hotels = [...allHotels].sort();
       const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
       fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
       fs.writeFileSync(outPath, hotels.join('\n'));
