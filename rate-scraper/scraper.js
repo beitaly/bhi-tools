@@ -36,125 +36,126 @@ const DRIVE_FOLDERS = {
 
 const SEARCH_BATCHES = [
   // ── LAGHI ────────────────────────────────────────────────────────────────
+  // Portal format: DISTINCTIVE NAME - CITY
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 1',
-    hotels: ['Pallanza by LVG Hotel Collection', 'Milan Speranza au Lac', 'Villa Paradiso'],
+    hotels: ['PALLANZA - VERBANIA', 'SPERANZA AU LAC - STRESA', 'PARADISO - STRESA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 2',
-    hotels: ['Grand Hotel Majestic', 'Hotel La Palma', 'Iles Borromees'],
+    hotels: ['MAJESTIC - VERBANIA', 'LA PALMA - STRESA', 'ILES BORROMEES - STRESA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 3',
-    hotels: ['Astoria', 'De Charme Laveno', 'Hotel Cannero Lakeside Resort'],
+    hotels: ['ASTORIA - STRESA', 'DE CHARME - LAVENO', 'CANNERO - CANNERO RIVIERA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 4',
-    hotels: ['Ghiffa', 'Ancora', 'Bel Sit'],
+    hotels: ['GHIFFA - GHIFFA', 'ANCORA - GHIFFA', 'BEL SIT - BAVENO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 5',
-    hotels: ['Relais Villa Porta', 'Regina Palace'],
+    hotels: ['VILLA PORTA - VERBANIA', 'REGINA PALACE - STRESA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 1',
-    hotels: ['Barchetta Excelsior', 'Asnigo', 'Como'],
+    hotels: ['BARCHETTA EXCELSIOR - COMO', 'ASNIGO - COMO', 'COMO - COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 2',
-    hotels: ['Axolute Comfort', 'Albavilla Hotel & Co.', 'Albergo Le Due Corti'],
+    hotels: ['AXOLUTE - COMO', 'ALBAVILLA - ALBAVILLA', 'DUE CORTI - COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 3',
-    hotels: ['NH Lecco Pontevecchio', 'Grand Hotel Menaggio', 'Belvedere'],
+    hotels: ['PONTEVECCHIO - LECCO', 'MENAGGIO - MENAGGIO', 'BELVEDERE - BELLAGIO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 4',
-    hotels: ["Red's Radaelli", 'Griso Collection', 'Seven Park'],
+    hotels: ['RADAELLI - COMO', 'GRISO - MALGRATE', 'SEVEN PARK - COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 5',
-    hotels: ['Hotel Villa Cipressi', 'Royal Victoria', 'Hilton Lake Como'],
+    hotels: ['VILLA CIPRESSI - VARENNA', 'ROYAL VICTORIA - VARENNA', 'HILTON LAKE COMO - COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 6',
-    hotels: ['Sheraton Lake Como', 'Palace Hotel Lake Como', 'BW Leonardo da Vinci'],
+    hotels: ['SHERATON LAKE COMO - COMO', 'PALACE HOTEL LAKE COMO - COMO', 'LEONARDO DA VINCI - COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 1',
-    hotels: ['Acquaviva del Garda', 'The Ziba Hotel & Spa', 'Donna Silvia'],
+    hotels: ['ACQUAVIVA DEL GARDA - DESENZANO DEL GARDA', 'ZIBA - MONIGA DEL GARDA', 'DONNA SILVIA - MANERBA DEL GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 2',
-    hotels: ['Flaminia', 'Sirmione', 'Alevic Hotel Sirmione'],
+    hotels: ['FLAMINIA - SIRMIONE', 'SIRMIONE - SIRMIONE', 'ALEVIC - SIRMIONE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 3',
-    hotels: ['Hotel Ocelle Thermae & Spa', 'HI Hotels Sirmione Lakeview Pool', 'Hotel Continental Wellness & Spa'],
+    hotels: ['OCELLE - SIRMIONE', 'HI HOTELS SIRMIONE - SIRMIONE', 'CONTINENTAL - SIRMIONE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 4',
-    hotels: ['Hotel Sirmione Terme', 'Du Parc', 'Kristal Palace'],
+    hotels: ['SIRMIONE TERME - SIRMIONE', 'DU PARC - PESCHIERA DEL GARDA', 'KRISTAL PALACE - SIRMIONE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 5',
-    hotels: ['Villa Paradiso Suite', 'Hotel Europa', 'Hotel Bella Italia'],
+    hotels: ['PARADISO SUITE - PESCHIERA DEL GARDA', 'EUROPA - PESCHIERA DEL GARDA', 'BELLA ITALIA - PESCHIERA DEL GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 6',
-    hotels: ['Sisan Family Resort', 'Le Ali del Frassino', 'TH Lazise Hotel Parchi del Garda'],
+    hotels: ['SISAN - LAZISE', 'ALI DEL FRASSINO - PESCHIERA DEL GARDA', 'PARCHI DEL GARDA - LAZISE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 7',
-    hotels: ['Active Hotel Paradiso & Golf', 'Enjoy Garda', 'Caesius Thermae & Spa Resort'],
+    hotels: ['PARADISO & GOLF - PESCHIERA DEL GARDA', 'ENJOY GARDA - LAZISE', 'CAESIUS - BARDOLINO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 8',
-    hotels: ['Grand Hotel Riva', 'Hotel Portici Romantik & Wellness', 'Arco Smart Hotel'],
+    hotels: ['RIVA - RIVA DEL GARDA', 'PORTICI - RIVA DEL GARDA', 'ARCO SMART - ARCO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 9',
-    hotels: ['Hotel Luise', 'Hotel Sole Relax & Panorama', 'Hotel Aquila dOro'],
+    hotels: ['LUISE - RIVA DEL GARDA', 'SOLE - RIVA DEL GARDA', 'AQUILA D\'ORO - RIVA DEL GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 10',
-    hotels: ['Hotel Boffenigo The Golden Hour', 'Du Lac et Du Parc', 'Grand Hotel Liberty'],
+    hotels: ['BOFFENIGO - COSTERMANO', 'DU LAC ET DU PARC - RIVA DEL GARDA', 'LIBERTY - ARCO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 11',
-    hotels: ['Garda Bellevue', 'Rivalta Life Style Hotel', 'Splendid Sole'],
+    hotels: ['GARDA BELLEVUE - GARDA', 'RIVALTA - CASTELNUOVO DEL GARDA', 'SPLENDID SOLE - MANERBA DEL GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 12',
-    hotels: ['Savoy Palace', 'Monastero Resort & Spa', 'Poiano Resort'],
+    hotels: ['SAVOY PALACE - RIVA DEL GARDA', 'MONASTERO - GARGNANO', 'POIANO - GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 13',
-    hotels: ['Villa Arcadio Hotel & Resort'],
+    hotels: ['VILLA ARCADIO - SALO'],
   },
 
   // ── TOSCANA ──────────────────────────────────────────────────────────────
@@ -572,6 +573,46 @@ app.get('/debug/result', (req, res) => {
   }
   const data = JSON.parse(fs.readFileSync(DEBUG_FILE, 'utf8'));
   res.json(data);
+});
+
+// Dump every option from the hotels-select dropdown as plain text (one per line)
+app.get('/debug/hotels', (req, res) => {
+  res.json({ status: 'started', poll: '/debug/hotels-result' });
+  (async () => {
+    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    try {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await login(page);
+      await page.waitForSelector('#hotels-select', { timeout: 15000 });
+      const hotels = await page.evaluate(() => {
+        const sel = document.querySelector('#hotels-select');
+        return Array.from(sel.options).map(o => o.text.trim()).filter(Boolean).sort();
+      });
+      const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
+      fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+      fs.writeFileSync(outPath, hotels.join('\n'));
+      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_hotels_list.json'), JSON.stringify({ count: hotels.length, hotels }, null, 2));
+      console.log(`  ✓ Hotels list saved: ${hotels.length} entries`);
+    } catch (err) {
+      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_hotels_list.json'), JSON.stringify({ error: err.message }));
+      console.error('  ✗ Hotels list error:', err.message);
+    } finally {
+      await browser.close();
+    }
+  })();
+});
+
+app.get('/debug/hotels-result', (req, res) => {
+  const jsonPath = path.join(DOWNLOAD_DIR, '_hotels_list.json');
+  const txtPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
+  if (!fs.existsSync(jsonPath)) return res.json({ status: 'not ready yet' });
+  const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  if (data.error) return res.status(500).json(data);
+  // Return as plain text for easy reading
+  if (req.query.format === 'json') return res.json(data);
+  res.setHeader('Content-Type', 'text/plain');
+  res.send(fs.readFileSync(txtPath, 'utf8'));
 });
 
 // List all downloaded files
