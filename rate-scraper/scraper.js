@@ -342,8 +342,11 @@ async function runBatch(page, batch, downloadDir) {
     await searchBox.fill('');
     await searchBox.type(hotelName.substring(0, 5), { delay: 80 });
 
-    // Wait for Select2 results to appear
-    await page.waitForSelector('.select2-results__option', { timeout: 8000 }).catch(() => null);
+    // Wait for Select2 to finish searching (clear the "Searching…" state)
+    await page.waitForFunction(() => {
+      const opts = document.querySelectorAll('.select2-results__option');
+      return opts.length > 0 && ![...opts].every(o => o.textContent.includes('Searching'));
+    }, { timeout: 10000 }).catch(() => null);
 
     // Find and click the best matching option
     const options = await page.locator('.select2-results__option').all();
