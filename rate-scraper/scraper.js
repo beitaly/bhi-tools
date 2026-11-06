@@ -587,39 +587,33 @@ app.get('/debug/hotels', (req, res) => {
       await page.waitForSelector('#hotels-select', { timeout: 15000 });
       fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
-      // Intercept ALL network requests to find the Select2 AJAX endpoint
-      const capturedRequests = [];
-      const capturedResponses = [];
-      page.on('request', req => {
-        capturedRequests.push({ url: req.url(), method: req.method(), headers: req.headers() });
-      });
-      page.on('response', async resp => {
-        try {
-          const url = resp.url();
-          const ct = resp.headers()['content-type'] || '';
-          if (ct.includes('json') || ct.includes('text')) {
-            const body = await resp.text().catch(() => '');
-            if (body.length < 500000) capturedResponses.push({ url, status: resp.status(), ct, body: body.substring(0, 2000) });
+      // Now we know the endpoint: hotel_search.php?term=<query>
+      // Query a-z plus 2-letter combos to harvest all hotels
+      const allHotels = new Map(); // text -> true (deduplicate)
+
+      const queries = 'abcdefghijklmnopqrstuvwxyz'.split('');
+      for (const letter of queries) {
+        const results = await page.evaluate(async (baseUrl, term) => {
+          const r = await fetch(`${baseUrl}/hotel_search.php?term=${encodeURIComponent(term)}`, { credentials: 'include' });
+          const text = await r.text();
+          try { return JSON.parse(text); } catch(e) { return { error: text.substring(0, 200) }; }
+        }, BASE_URL, letter);
+
+        if (results && results.results && Array.isArray(results.results)) {
+          for (const item of results.results) {
+            if (item.text) allHotels.set(item.text, item.id || '');
           }
-        } catch(e) {}
-      });
+        } else if (Array.isArray(results)) {
+          for (const item of results) {
+            if (item.text) allHotels.set(item.text, item.id || '');
+          }
+        }
+        console.log(`  letter ${letter}: got ${results && results.results ? results.results.length : '?'} results (total unique: ${allHotels.size})`);
+        await page.waitForTimeout(200);
+      }
 
-      // Fetch scripts.js (authenticated, using the browser session cookie)
-      const scriptsJs = await page.evaluate(async (url) => {
-        const r = await fetch(url, { credentials: 'include' });
-        return r.text();
-      }, `${BASE_URL}/scripts.js`);
-      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_scripts.js'), scriptsJs);
-
-      const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1);
-      await searchBox.click();
-      await searchBox.type('a', { delay: 100 });
-      await page.waitForTimeout(4000);
-      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_network_requests.json'), JSON.stringify({ requests: capturedRequests, responses: capturedResponses }, null, 2));
-
-      const hotels = ['[check /debug/scriptsjs]'];
+      const hotels = [...allHotels.keys()].sort();
       const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
-      fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
       fs.writeFileSync(outPath, hotels.join('\n'));
       fs.writeFileSync(path.join(DOWNLOAD_DIR, '_hotels_list.json'), JSON.stringify({ count: hotels.length, hotels }, null, 2));
       console.log(`  ✓ Hotels list saved: ${hotels.length} entries`);
