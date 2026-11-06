@@ -328,53 +328,45 @@ async function runBatch(page, batch, downloadDir) {
   // Navigate to search page (login + search are both on index.php)
   await page.goto(`${BASE_URL}/index.php`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-  // Wait for the search form — the "Select Hotels" typeahead input
-  // The form is on the same page as login; after login it shows the search form
-  await page.waitForSelector('input[placeholder*="hotel"], input[placeholder*="Hotel"]', { timeout: 15000 });
-
-  // The "Select Hotels" field is a typeahead — type each hotel name, wait for
-  // the dropdown, click the first suggestion, then type the next one.
-  const hotelInput = page.locator('input[placeholder*="hotel"], input[placeholder*="Hotel"]').first();
+  // The "Select Hotels" field is a Select2 multi-select widget.
+  // The underlying element is <select id="hotels-select">.
+  // We interact via the Select2 JS API for reliability.
+  await page.waitForSelector('#hotels-select', { timeout: 15000 });
 
   for (const hotelName of batch.hotels) {
-    await hotelInput.click();
-    await hotelInput.fill(''); // clear any previous partial input
-    await hotelInput.type(hotelName.substring(0, 4), { delay: 80 }); // type first 4 chars to trigger suggestions
-    console.log(`    → Typing "${hotelName.substring(0, 4)}" for: ${hotelName}`);
+    console.log(`    → Selecting: ${hotelName}`);
 
-    // Wait for autocomplete dropdown
-    const suggestion = page.locator(
-      'li[role="option"], .autocomplete-item, .select2-result, .ui-menu-item, ' +
-      '[class*="suggestion"], [class*="dropdown"] li, [class*="option"]'
-    ).first();
+    // Click the Select2 search textarea to open the dropdown
+    const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1); // nth(1) = hotels (nth(0) = cities)
+    await searchBox.click();
+    await searchBox.fill('');
+    await searchBox.type(hotelName.substring(0, 5), { delay: 80 });
 
-    try {
-      await suggestion.waitFor({ timeout: 8000 });
-      // Try to click the item that most closely matches the full hotel name
-      const allSuggestions = await page.locator(
-        'li[role="option"], .autocomplete-item, .select2-result, .ui-menu-item, ' +
-        '[class*="suggestion"], [class*="dropdown"] li, [class*="option"]'
-      ).all();
-      let clicked = false;
-      for (const s of allSuggestions) {
-        const text = (await s.textContent() || '').trim();
-        if (text && hotelName.toLowerCase().includes(text.toLowerCase().substring(0, 6))) {
-          await s.click();
-          clicked = true;
-          break;
-        }
+    // Wait for Select2 results to appear
+    await page.waitForSelector('.select2-results__option', { timeout: 8000 }).catch(() => null);
+
+    // Find and click the best matching option
+    const options = await page.locator('.select2-results__option').all();
+    let matched = false;
+    for (const opt of options) {
+      const text = (await opt.textContent() || '').trim();
+      if (text.toLowerCase().includes(hotelName.toLowerCase().substring(0, 8))) {
+        await opt.click();
+        matched = true;
+        console.log(`    ✓ Matched: "${text}"`);
+        break;
       }
-      if (!clicked) {
-        // Fallback: click the first suggestion
-        await suggestion.click();
-      }
-      console.log(`    ✓ Selected: ${hotelName}`);
-      await page.waitForTimeout(500); // small pause between selections
-    } catch (e) {
-      console.warn(`    ⚠  No autocomplete suggestion for: ${hotelName} — ${e.message}`);
-      // Press Escape to close any open dropdown and continue
+    }
+    if (!matched && options.length > 0) {
+      // Fallback: pick first result
+      const text = (await options[0].textContent() || '').trim();
+      await options[0].click();
+      console.log(`    ⚠ Fallback first result: "${text}"`);
+    } else if (!matched) {
+      console.warn(`    ✗ No results for: ${hotelName}`);
       await page.keyboard.press('Escape');
     }
+    await page.waitForTimeout(400);
   }
 
   // Click "Schedule search by year" button
