@@ -304,21 +304,29 @@ async function uploadToDrive(filePath, fileName, folderId) {
 
 async function login(page) {
   console.log('  → Navigating to login page…');
-  await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+  // Use 'domcontentloaded' — more reliable than 'networkidle' for portals with
+  // persistent background polling that never fully settle
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-  // Fill login form — adjust selectors if the portal uses different field names
+  // Wait for the login form to actually appear
+  await page.waitForSelector('input[type="password"]', { timeout: 30000 });
+  console.log('  → Login form found, filling credentials…');
+
   await page.fill('input[name="username"], input[type="text"]:first-of-type', process.env.BHI_USERNAME);
   await page.fill('input[name="password"], input[type="password"]', process.env.BHI_PASSWORD);
   await page.click('button[type="submit"], input[type="submit"]');
-  await page.waitForNavigation({ waitUntil: 'networkidle' });
-  console.log('  ✓ Logged in');
+
+  // Wait for the page to change after login rather than a nav event
+  await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 })
+    .catch(() => page.waitForTimeout(5000)); // fallback: just wait 5s if no nav fires
+  console.log('  ✓ Logged in — current URL:', page.url());
 }
 
 async function runBatch(page, batch, downloadDir) {
   console.log(`\n  🔍  ${batch.label} (${batch.hotels.length} hotel${batch.hotels.length > 1 ? 's' : ''})`);
 
   // Navigate to search — adjust URL/path if needed
-  await page.goto(`${BASE_URL}/search`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE_URL}/search`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   // Clear existing hotel selections and enter batch
   // These selectors are illustrative — adjust once you can inspect the live portal
