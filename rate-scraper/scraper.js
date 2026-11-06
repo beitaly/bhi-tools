@@ -585,39 +585,42 @@ app.get('/debug/hotels', (req, res) => {
       const page = await context.newPage();
       await login(page);
       await page.waitForSelector('#hotels-select', { timeout: 15000 });
+      fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
-      // Try 1: read all <option> tags directly from the DOM (may be pre-populated)
-      let hotels = await page.evaluate(() => {
-        const sel = document.querySelector('#hotels-select');
-        return Array.from(sel.options).map(o => o.text.trim()).filter(Boolean);
+      // Intercept ALL network requests to find the Select2 AJAX endpoint
+      const capturedRequests = [];
+      const capturedResponses = [];
+      page.on('request', req => {
+        capturedRequests.push({ url: req.url(), method: req.method(), headers: req.headers() });
+      });
+      page.on('response', async resp => {
+        try {
+          const url = resp.url();
+          const ct = resp.headers()['content-type'] || '';
+          if (ct.includes('json') || ct.includes('text')) {
+            const body = await resp.text().catch(() => '');
+            if (body.length < 500000) capturedResponses.push({ url, status: resp.status(), ct, body: body.substring(0, 2000) });
+          }
+        } catch(e) {}
       });
 
-      // Try 2: if empty, dump the entire page source so we can inspect it
-      if (hotels.length === 0) {
-        fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
-        const html = await page.content();
-        // Save raw HTML for inspection
-        const htmlPath = path.join(DOWNLOAD_DIR, '_page_source.html');
-        fs.writeFileSync(htmlPath, html);
-        // Also try to find any JS variable containing hotel data
-        const jsData = await page.evaluate(() => {
-          // Look for common patterns: window.hotels, window.hotelData, etc.
-          const keys = Object.keys(window).filter(k =>
-            k.toLowerCase().includes('hotel') || k.toLowerCase().includes('select')
-          );
-          const result = {};
-          keys.forEach(k => { try { result[k] = JSON.stringify(window[k]).substring(0, 500); } catch(e) {} });
-          return result;
-        });
-        // Also check all script tags for hotel data
-        const scriptData = await page.evaluate(() => {
-          return Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent.substring(0, 2000));
-        });
-        fs.writeFileSync(path.join(DOWNLOAD_DIR, '_js_data.json'), JSON.stringify({ windowVars: jsData, scripts: scriptData }, null, 2));
-        hotels = ['[see _js_data.json and _page_source.html for inspection]'];
-      }
+      // Trigger Select2 search
+      const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1);
+      await searchBox.click();
+      await searchBox.type('a', { delay: 100 });
+      await page.waitForTimeout(4000);
 
-      hotels = hotels.sort();
+      // Save everything we captured
+      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_network_requests.json'), JSON.stringify({ requests: capturedRequests, responses: capturedResponses }, null, 2));
+
+      // Also find the Select2 init code in the page source
+      const select2Config = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent);
+        return scripts.filter(s => s.includes('select2') || s.includes('hotels-select') || s.includes('ajax'));
+      });
+      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_select2_config.json'), JSON.stringify(select2Config, null, 2));
+
+      const hotels = ['[check /debug/network and /debug/select2config]'];
       const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
       fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
       fs.writeFileSync(outPath, hotels.join('\n'));
@@ -630,6 +633,20 @@ app.get('/debug/hotels', (req, res) => {
       await browser.close();
     }
   })();
+});
+
+app.get('/debug/network', (req, res) => {
+  const f = path.join(DOWNLOAD_DIR, '_network_requests.json');
+  if (!fs.existsSync(f)) return res.json({ status: 'not ready' });
+  res.setHeader('Content-Type', 'application/json');
+  res.send(fs.readFileSync(f));
+});
+
+app.get('/debug/select2config', (req, res) => {
+  const f = path.join(DOWNLOAD_DIR, '_select2_config.json');
+  if (!fs.existsSync(f)) return res.json({ status: 'not ready' });
+  res.setHeader('Content-Type', 'application/json');
+  res.send(fs.readFileSync(f));
 });
 
 app.get('/debug/hotels-result', (req, res) => {
