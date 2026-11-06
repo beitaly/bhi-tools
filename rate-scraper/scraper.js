@@ -593,11 +593,11 @@ app.get('/debug/hotels', (req, res) => {
 
       const queries = 'abcdefghijklmnopqrstuvwxyz'.split('');
       for (const letter of queries) {
-        const results = await page.evaluate(async (baseUrl, term) => {
+        const results = await page.evaluate(async ({ baseUrl, term }) => {
           const r = await fetch(`${baseUrl}/hotel_search.php?term=${encodeURIComponent(term)}`, { credentials: 'include' });
           const text = await r.text();
           try { return JSON.parse(text); } catch(e) { return { error: text.substring(0, 200) }; }
-        }, BASE_URL, letter);
+        }, { baseUrl: BASE_URL, term: letter });
 
         if (results && results.results && Array.isArray(results.results)) {
           for (const item of results.results) {
