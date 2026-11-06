@@ -611,20 +611,6 @@ app.get('/debug/hotels', (req, res) => {
       }, `${BASE_URL}/scripts.js`);
       fs.writeFileSync(path.join(DOWNLOAD_DIR, '_scripts.js'), scriptsJs);
 
-      // Also capture network requests while triggering a search
-      const capturedRequests = [];
-      const capturedResponses = [];
-      page.on('request', req => capturedRequests.push({ url: req.url(), method: req.method() }));
-      page.on('response', async resp => {
-        try {
-          const ct = resp.headers()['content-type'] || '';
-          if (ct.includes('json')) {
-            const body = await resp.text().catch(() => '');
-            capturedResponses.push({ url: resp.url(), body: body.substring(0, 3000) });
-          }
-        } catch(e) {}
-      });
-
       const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1);
       await searchBox.click();
       await searchBox.type('a', { delay: 100 });
