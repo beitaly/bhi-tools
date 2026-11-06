@@ -635,14 +635,14 @@ app.get('/debug/hotels', (req, res) => {
   })();
 });
 
-app.get('/debug/network', (req, res) => {
+app.get('/debug/netlog', (req, res) => {
   const f = path.join(DOWNLOAD_DIR, '_network_requests.json');
   if (!fs.existsSync(f)) return res.json({ status: 'not ready' });
   res.setHeader('Content-Type', 'application/json');
   res.send(fs.readFileSync(f));
 });
 
-app.get('/debug/select2config', (req, res) => {
+app.get('/debug/s2config', (req, res) => {
   const f = path.join(DOWNLOAD_DIR, '_select2_config.json');
   if (!fs.existsSync(f)) return res.json({ status: 'not ready' });
   res.setHeader('Content-Type', 'application/json');
