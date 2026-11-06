@@ -418,7 +418,51 @@ async function runScraper(targetDestination = null) {
 
 const app = express();
 
+app.get('/', (req, res) => res.json({
+  service: 'BHI Rate Scraper',
+  endpoints: {
+    health:       'GET /health',
+    run_all:      'GET /run',
+    run_dest:     'GET /run/:destination  (laghi | toscana | sardegna | liguria)',
+    list_files:   'GET /files',
+    download:     'GET /files/:filename',
+  },
+}));
+
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+
+// List all downloaded files
+app.get('/files', (req, res) => {
+  try {
+    if (!fs.existsSync(DOWNLOAD_DIR)) {
+      return res.json({ files: [], message: 'No files downloaded yet. Run /run first.' });
+    }
+    const files = fs.readdirSync(DOWNLOAD_DIR)
+      .filter(f => f.endsWith('.xls') || f.endsWith('.xlsx'))
+      .map(f => {
+        const stat = fs.statSync(path.join(DOWNLOAD_DIR, f));
+        return {
+          name: f,
+          size: `${(stat.size / 1024).toFixed(1)} KB`,
+          downloaded: stat.mtime.toISOString().slice(0, 16).replace('T', ' '),
+          url: `/files/${f}`,
+        };
+      })
+      .sort((a, b) => b.downloaded.localeCompare(a.downloaded));
+    res.json({ count: files.length, files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Download a specific file
+app.get('/files/:filename', (req, res) => {
+  const filePath = path.join(DOWNLOAD_DIR, path.basename(req.params.filename));
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  res.download(filePath);
+});
 
 app.get('/run/:destination?', async (req, res) => {
   const dest = req.params.destination || null;
