@@ -604,23 +604,34 @@ app.get('/debug/hotels', (req, res) => {
         } catch(e) {}
       });
 
-      // Trigger Select2 search
+      // Fetch scripts.js (authenticated, using the browser session cookie)
+      const scriptsJs = await page.evaluate(async (url) => {
+        const r = await fetch(url, { credentials: 'include' });
+        return r.text();
+      }, `${BASE_URL}/scripts.js`);
+      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_scripts.js'), scriptsJs);
+
+      // Also capture network requests while triggering a search
+      const capturedRequests = [];
+      const capturedResponses = [];
+      page.on('request', req => capturedRequests.push({ url: req.url(), method: req.method() }));
+      page.on('response', async resp => {
+        try {
+          const ct = resp.headers()['content-type'] || '';
+          if (ct.includes('json')) {
+            const body = await resp.text().catch(() => '');
+            capturedResponses.push({ url: resp.url(), body: body.substring(0, 3000) });
+          }
+        } catch(e) {}
+      });
+
       const searchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(1);
       await searchBox.click();
       await searchBox.type('a', { delay: 100 });
       await page.waitForTimeout(4000);
-
-      // Save everything we captured
       fs.writeFileSync(path.join(DOWNLOAD_DIR, '_network_requests.json'), JSON.stringify({ requests: capturedRequests, responses: capturedResponses }, null, 2));
 
-      // Also find the Select2 init code in the page source
-      const select2Config = await page.evaluate(() => {
-        const scripts = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent);
-        return scripts.filter(s => s.includes('select2') || s.includes('hotels-select') || s.includes('ajax'));
-      });
-      fs.writeFileSync(path.join(DOWNLOAD_DIR, '_select2_config.json'), JSON.stringify(select2Config, null, 2));
-
-      const hotels = ['[check /debug/network and /debug/select2config]'];
+      const hotels = ['[check /debug/scriptsjs]'];
       const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
       fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
       fs.writeFileSync(outPath, hotels.join('\n'));
@@ -633,6 +644,13 @@ app.get('/debug/hotels', (req, res) => {
       await browser.close();
     }
   })();
+});
+
+app.get('/debug/scriptsjs', (req, res) => {
+  const f = path.join(DOWNLOAD_DIR, '_scripts.js');
+  if (!fs.existsSync(f)) return res.json({ status: 'not ready' });
+  res.setHeader('Content-Type', 'text/plain');
+  res.send(fs.readFileSync(f));
 });
 
 app.get('/debug/netlog', (req, res) => {
