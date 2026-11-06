@@ -594,6 +594,7 @@ app.get('/debug/hotels', (req, res) => {
 
       // Try 2: if empty, dump the entire page source so we can inspect it
       if (hotels.length === 0) {
+        fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
         const html = await page.content();
         // Save raw HTML for inspection
         const htmlPath = path.join(DOWNLOAD_DIR, '_page_source.html');
