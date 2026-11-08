@@ -2599,7 +2599,7 @@ function getDriveClient() {
   const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
   const auth = new google.auth.GoogleAuth({
     credentials: creds,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
+    scopes: ['https://www.googleapis.com/auth/drive'],
   });
   return google.drive({ version: 'v3', auth });
 }
@@ -2611,6 +2611,7 @@ async function uploadToDrive(filePath, fileName, folderId) {
   }
   const drive = getDriveClient();
   const res = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name: fileName,
       parents: [folderId],
