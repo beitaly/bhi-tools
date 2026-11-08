@@ -345,6 +345,7 @@
     <button class="tab-btn" onclick="show('sardinia')" role="tab">Sardinia</button>
     <button class="tab-btn" onclick="show('liguria')" role="tab">Liguria</button>
     <button class="tab-btn" onclick="show('veneto')" role="tab">Veneto exp</button>
+    <button class="tab-btn" onclick="show('ratescraper')" role="tab">Rate scraper</button>
   </nav>
 
   <!-- ═══ LAKES ═══ -->
@@ -859,6 +860,100 @@
       <li><span class="step-n">05</span><div class="step-body">Collect all 4 vouchers. Merge into a single PDF using the <code>/vouchers</code> PDF merge UI in the app.</div></li>
       <li><span class="step-n">06</span><div class="step-body">Enter all 4 costs in pivot (one row per booking). Send merged PDF voucher to client.</div></li>
     </ol>
+  </div>
+
+  <div id="panel-ratescraper" class="tab-panel">
+    <p class="pkg-meta">Automated overnight rate extraction &nbsp;·&nbsp; Runs on Railway &nbsp;·&nbsp; Results saved to Google Drive by destination</p>
+
+    <div class="alert alert-warn">⚠ The scraper logs into the BHI hotels portal as a real user — do not use the portal manually while a scrape is running, and do not trigger two destinations at the same time.</div>
+
+    <div class="section-label">How it works</div>
+    <p style="font-size:0.82rem;color:var(--mid);margin:0 0 1rem;">The scraper runs on Railway 24/7. You trigger it via a simple browser URL — no login needed. It searches all hotels for the chosen destination in batches of 3, downloads the XLS rate sheet for each batch, and uploads them to the shared Google Drive folder. Trigger at ~18:00; results are in Drive by next morning.</p>
+
+    <div class="section-label">Trigger URLs</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:1.25rem;">
+      <thead>
+        <tr style="background:var(--row-alt);color:var(--mid);font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;">
+          <th style="padding:0.45rem 0.6rem;text-align:left;">Action</th>
+          <th style="padding:0.45rem 0.6rem;text-align:left;">URL — open in any browser tab</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);font-weight:600;">All destinations</td><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);"><a href="https://bhi-tools-production.up.railway.app/run" target="_blank" style="color:var(--accent);font-family:monospace;">/run</a></td></tr>
+        <tr style="background:var(--row-alt);"><td style="padding:0.4rem 0.6rem;">Lakes only</td><td style="padding:0.4rem 0.6rem;"><a href="https://bhi-tools-production.up.railway.app/run/laghi" target="_blank" style="color:var(--accent);font-family:monospace;">/run/laghi</a></td></tr>
+        <tr><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);">Tuscany only</td><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);"><a href="https://bhi-tools-production.up.railway.app/run/toscana" target="_blank" style="color:var(--accent);font-family:monospace;">/run/toscana</a></td></tr>
+        <tr style="background:var(--row-alt);"><td style="padding:0.4rem 0.6rem;">Sardinia only</td><td style="padding:0.4rem 0.6rem;"><a href="https://bhi-tools-production.up.railway.app/run/sardegna" target="_blank" style="color:var(--accent);font-family:monospace;">/run/sardegna</a></td></tr>
+        <tr><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);">Liguria only</td><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);"><a href="https://bhi-tools-production.up.railway.app/run/liguria" target="_blank" style="color:var(--accent);font-family:monospace;">/run/liguria</a></td></tr>
+        <tr style="background:var(--row-alt);"><td style="padding:0.4rem 0.6rem;">Check status</td><td style="padding:0.4rem 0.6rem;"><a href="https://bhi-tools-production.up.railway.app/" target="_blank" style="color:var(--accent);font-family:monospace;">/</a> &nbsp;(shows what is running / last run)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="section-label">Coverage per destination</div>
+    <div class="hotel-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:1.25rem;">
+      <div class="hotel-col">
+        <div class="col-title">Lakes (363 hotels)</div>
+        <ul class="hotel-list" style="font-size:0.78rem;">
+          <li>Lake Maggiore</li>
+          <li>Lake Como / Lecco</li>
+          <li>Cantù / Montano Lucino</li>
+          <li>Lake Garda — Desenzano, Peschiera, Sirmione, Manerba</li>
+        </ul>
+      </div>
+      <div class="hotel-col">
+        <div class="col-title">Tuscany (692 hotels)</div>
+        <ul class="hotel-list" style="font-size:0.78rem;">
+          <li>Florence / Fiesole / Impruneta</li>
+          <li>Reggello / Rignano</li>
+          <li>Arezzo / Chianciano / Lucca</li>
+          <li>Asciano / Siena</li>
+          <li>Volterra</li>
+          <li>Val di Cecina / Montecatini</li>
+        </ul>
+      </div>
+      <div class="hotel-col">
+        <div class="col-title">Sardinia (231 hotels)</div>
+        <ul class="hotel-list" style="font-size:0.78rem;">
+          <li>Cagliari</li>
+          <li>Arzachena / Olbia / Porto Rotondo</li>
+          <li>Alghero / Castelsardo / Stintino</li>
+        </ul>
+      </div>
+      <div class="hotel-col">
+        <div class="col-title">Liguria (222 hotels)</div>
+        <ul class="hotel-list" style="font-size:0.78rem;">
+          <li>Chiavari / Rapallo / Santa Margherita</li>
+          <li>Ameglia / La Spezia / Portovenere</li>
+          <li>Alassio / Sanremo / Savona</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-label">Step-by-step — triggering a run</div>
+    <ol class="steps">
+      <li><span class="step-n">01</span><div class="step-body">At around 18:00, open the trigger URL for the destination you want in any browser tab (see table above). The page responds immediately with <code>{"status":"started"}</code> — you can close the tab.</div></li>
+      <li><span class="step-n">02</span><div class="step-body">The scraper runs overnight. Each hotel batch takes ~30–60 seconds (login → search → download). Full destination runtimes: Lakes ~5 hrs, Tuscany ~9 hrs, Sardinia ~3 hrs, Liguria ~3 hrs. All four back-to-back ~20 hrs.</div></li>
+      <li><span class="step-n">03</span><div class="step-body">Next morning, open the shared Google Drive rate folder for the destination. XLS files are uploaded automatically as each batch completes — one file per batch, named by destination and hotel group.</div></li>
+      <li><span class="step-n">04</span><div class="step-body">Pass the Drive folder link to Concezio (or Claude) to build the VP package pricing from the downloaded rate sheets.</div></li>
+    </ol>
+
+    <hr class="divider">
+    <div class="section-label">Google Drive folders (results land here)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:1.25rem;">
+      <thead>
+        <tr style="background:var(--row-alt);color:var(--mid);font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;">
+          <th style="padding:0.45rem 0.6rem;text-align:left;">Destination</th>
+          <th style="padding:0.45rem 0.6rem;text-align:left;">Drive folder</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);">Lakes</td><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);color:var(--mid);">— set up needed (ask Concezio)</td></tr>
+        <tr style="background:var(--row-alt);"><td style="padding:0.4rem 0.6rem;">Tuscany</td><td style="padding:0.4rem 0.6rem;color:var(--mid);">— set up needed (ask Concezio)</td></tr>
+        <tr><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);">Sardinia</td><td style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);color:var(--mid);">— set up needed (ask Concezio)</td></tr>
+        <tr style="background:var(--row-alt);"><td style="padding:0.4rem 0.6rem;">Liguria</td><td style="padding:0.4rem 0.6rem;color:var(--mid);">— set up needed (ask Concezio)</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.75rem;color:var(--mid);">Drive folders are configured as Railway environment variables (<code>DRIVE_FOLDER_LAGHI</code>, <code>DRIVE_FOLDER_TOSCANA</code>, <code>DRIVE_FOLDER_SARDEGNA</code>, <code>DRIVE_FOLDER_LIGURIA</code>). Once set, uploads are fully automatic.</p>
   </div>
 
   <div class="shell-footer">
