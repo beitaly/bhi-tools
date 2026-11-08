@@ -2708,13 +2708,8 @@ async function runBatch(page, batch, downloadDir) {
         }
       }
     }
-    if (!matched && options.length > 0) {
-      // Fallback: pick first result
-      const text = (await options[0].textContent() || '').trim();
-      await options[0].click();
-      console.log(`    ⚠ Fallback first result: "${text}"`);
-    } else if (!matched) {
-      console.warn(`    ✗ No results for: ${hotelName}`);
+    if (!matched) {
+      console.warn(`    ✗ No match for: ${hotelName} — skipping`);
       await page.keyboard.press('Escape');
     }
     await page.waitForTimeout(400);
