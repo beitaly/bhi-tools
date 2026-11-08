@@ -36,71 +36,22 @@ const DRIVE_FOLDERS = {
 
 const SEARCH_BATCHES = [
   // ── LAGHI ────────────────────────────────────────────────────────────────
+  // VP 2027 Black Friday proposal: 1 hotel per lake
   // Portal format: NAME - CITIES_NAMES (from hotels.csv cities_names column)
   {
     destination: 'laghi',
-    label: 'Lake Maggiore — batch 1',
-    hotels: ['PALLANZA - LAKE MAGGIORE', 'MILAN SPERANZA AU LAC - LAKE MAGGIORE', 'GRAND HOTEL DES ILES BORROMEES - LAKE MAGGIORE'],
+    label: 'Lake Maggiore',
+    hotels: ['PALLANZA - LAKE MAGGIORE'],
   },
   {
     destination: 'laghi',
-    label: 'Lake Maggiore — batch 2',
-    hotels: ['GRAND HOTEL MAJESTIC - LAKE MAGGIORE', 'LA PALMA - LAKE MAGGIORE', 'REGINA PALACE - LAKE MAGGIORE'],
+    label: 'Lake Como',
+    hotels: ['HOTEL CRUISE - MONTANO LUCINO - COMO'],
   },
   {
     destination: 'laghi',
-    label: 'Lake Maggiore — batch 3',
-    hotels: ['GRAND HOTEL DINO - LAKE MAGGIORE', 'VILLA  E PALAZZO AMINTA HOTEL BEAUTY & SPA - LAKE MAGGIORE', 'GRAND HOTEL BRISTOL - LAKE MAGGIORE'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Maggiore — batch 4',
-    hotels: ['LIDO PALACE - BAVENO - VERBANIA', 'SIMPLON - LAKE MAGGIORE', 'ASTORIA - LAKE MAGGIORE'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Maggiore — batch 5',
-    hotels: ['ALBERGO VERBANO - LAKE MAGGIORE', 'HOTEL CANNERO LAKESIDE RESORT - LAKE MAGGIORE', 'GHIFFA - LAKE MAGGIORE'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Como — batch 1',
-    hotels: ['GRAND HOTEL TREMEZZO - LAKE COMO', 'GRAND HOTEL VILLA SERBELLONI - LAKE COMO', 'GRAND HOTEL VICTORIA CONCEPT & SPA - LAKE COMO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Como — batch 2',
-    hotels: ['HILTON LAKE COMO - LAKE COMO', 'GRAND HOTEL MENAGGIO - LAKE COMO', 'HOTEL BAZZONI - LAKE COMO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Como — batch 3',
-    hotels: ['TERMINUS - LAKE COMO', 'VILLA FLORI - LAKE COMO', 'GRAND HOTEL IMPERIALE RESORT&SPA - LAKE COMO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Como — batch 4',
-    hotels: ['LAURIN - SANTA MARGHERITA LIGURE - GENOA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 1',
-    hotels: ['GRAND HOTEL GARDONE - LAKE GARDA', 'SPLENDID PALACE - LKGD', 'LAURIN - SANTA MARGHERITA LIGURE - GENOA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 2',
-    hotels: ['RELAIS CORTE PARADISO - LAKE GARDA', 'HOTEL CONTINENTAL - LAKE GARDA', 'HOTEL TERMINUS - LAKE GARDA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 3',
-    hotels: ['INTERNATIONAL - LAKE GARDA', 'HOTEL CONTINENTAL - TONELLI HOTELS - LAKE GARDA', 'HOTEL VILLA CARLOTTA - LAKE GARDA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 4',
-    hotels: ['LIDO PALACE - LAKE GARDA'],
+    label: 'Lake Garda',
+    hotels: ['ACQUAVIVA DEL GARDA - LAKE GARDA'],
   },
 
   // ── TOSCANA ──────────────────────────────────────────────────────────────
