@@ -36,238 +36,170 @@ const DRIVE_FOLDERS = {
 
 const SEARCH_BATCHES = [
   // ── LAGHI ────────────────────────────────────────────────────────────────
-  // Portal format: DISTINCTIVE NAME - CITY
+  // Portal format: NAME - CITIES_NAMES (from hotels.csv cities_names column)
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 1',
-    hotels: ['PALLANZA - VERBANIA', 'SPERANZA AU LAC - STRESA', 'PARADISO - STRESA'],
+    hotels: ['PALLANZA - LAKE MAGGIORE', 'MILAN SPERANZA AU LAC - LAKE MAGGIORE', 'GRAND HOTEL DES ILES BORROMEES - LAKE MAGGIORE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 2',
-    hotels: ['MAJESTIC - VERBANIA', 'LA PALMA - STRESA', 'ILES BORROMEES - STRESA'],
+    hotels: ['GRAND HOTEL MAJESTIC - LAKE MAGGIORE', 'LA PALMA - LAKE MAGGIORE', 'REGINA PALACE - LAKE MAGGIORE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 3',
-    hotels: ['ASTORIA - STRESA', 'DE CHARME - LAVENO', 'CANNERO - CANNERO RIVIERA'],
+    hotels: ['GRAND HOTEL DINO - LAKE MAGGIORE', 'VILLA  E PALAZZO AMINTA HOTEL BEAUTY & SPA - LAKE MAGGIORE', 'GRAND HOTEL BRISTOL - LAKE MAGGIORE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 4',
-    hotels: ['GHIFFA - GHIFFA', 'ANCORA - GHIFFA', 'BEL SIT - BAVENO'],
+    hotels: ['LIDO PALACE - BAVENO - VERBANIA', 'SIMPLON - LAKE MAGGIORE', 'ASTORIA - LAKE MAGGIORE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Maggiore — batch 5',
-    hotels: ['VILLA PORTA - VERBANIA', 'REGINA PALACE - STRESA'],
+    hotels: ['ALBERGO VERBANO - LAKE MAGGIORE', 'HOTEL CANNERO LAKESIDE RESORT - LAKE MAGGIORE', 'GHIFFA - LAKE MAGGIORE'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 1',
-    hotels: ['BARCHETTA EXCELSIOR - COMO', 'ASNIGO - COMO', 'COMO - COMO'],
+    hotels: ['GRAND HOTEL TREMEZZO - LAKE COMO', 'GRAND HOTEL VILLA SERBELLONI - LAKE COMO', 'GRAND HOTEL VICTORIA CONCEPT & SPA - LAKE COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 2',
-    hotels: ['AXOLUTE - COMO', 'ALBAVILLA - ALBAVILLA', 'DUE CORTI - COMO'],
+    hotels: ['HILTON LAKE COMO - LAKE COMO', 'GRAND HOTEL MENAGGIO - LAKE COMO', 'HOTEL BAZZONI - LAKE COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 3',
-    hotels: ['PONTEVECCHIO - LECCO', 'MENAGGIO - MENAGGIO', 'BELVEDERE - BELLAGIO'],
+    hotels: ['TERMINUS - LAKE COMO', 'VILLA FLORI - LAKE COMO', 'GRAND HOTEL IMPERIALE RESORT&SPA - LAKE COMO'],
   },
   {
     destination: 'laghi',
     label: 'Lake Como — batch 4',
-    hotels: ['RADAELLI - COMO', 'GRISO - MALGRATE', 'SEVEN PARK - COMO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Como — batch 5',
-    hotels: ['VILLA CIPRESSI - VARENNA', 'ROYAL VICTORIA - VARENNA', 'HILTON LAKE COMO - COMO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Como — batch 6',
-    hotels: ['SHERATON LAKE COMO - COMO', 'PALACE HOTEL LAKE COMO - COMO', 'LEONARDO DA VINCI - COMO'],
+    hotels: ['LAURIN - SANTA MARGHERITA LIGURE - GENOA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 1',
-    hotels: ['ACQUAVIVA DEL GARDA - DESENZANO DEL GARDA', 'ZIBA - MONIGA DEL GARDA', 'DONNA SILVIA - MANERBA DEL GARDA'],
+    hotels: ['GRAND HOTEL GARDONE - LAKE GARDA', 'SPLENDID PALACE - LKGD', 'LAURIN - SANTA MARGHERITA LIGURE - GENOA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 2',
-    hotels: ['FLAMINIA - SIRMIONE', 'SIRMIONE - SIRMIONE', 'ALEVIC - SIRMIONE'],
+    hotels: ['RELAIS CORTE PARADISO - LAKE GARDA', 'HOTEL CONTINENTAL - LAKE GARDA', 'HOTEL TERMINUS - LAKE GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 3',
-    hotels: ['OCELLE - SIRMIONE', 'HI HOTELS SIRMIONE - SIRMIONE', 'CONTINENTAL - SIRMIONE'],
+    hotels: ['INTERNATIONAL - LAKE GARDA', 'HOTEL CONTINENTAL - TONELLI HOTELS - LAKE GARDA', 'HOTEL VILLA CARLOTTA - LAKE GARDA'],
   },
   {
     destination: 'laghi',
     label: 'Lake Garda — batch 4',
-    hotels: ['SIRMIONE TERME - SIRMIONE', 'DU PARC - PESCHIERA DEL GARDA', 'KRISTAL PALACE - SIRMIONE'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 5',
-    hotels: ['PARADISO SUITE - PESCHIERA DEL GARDA', 'EUROPA - PESCHIERA DEL GARDA', 'BELLA ITALIA - PESCHIERA DEL GARDA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 6',
-    hotels: ['SISAN - LAZISE', 'ALI DEL FRASSINO - PESCHIERA DEL GARDA', 'PARCHI DEL GARDA - LAZISE'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 7',
-    hotels: ['PARADISO & GOLF - PESCHIERA DEL GARDA', 'ENJOY GARDA - LAZISE', 'CAESIUS - BARDOLINO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 8',
-    hotels: ['RIVA - RIVA DEL GARDA', 'PORTICI - RIVA DEL GARDA', 'ARCO SMART - ARCO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 9',
-    hotels: ['LUISE - RIVA DEL GARDA', 'SOLE - RIVA DEL GARDA', 'AQUILA D\'ORO - RIVA DEL GARDA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 10',
-    hotels: ['BOFFENIGO - COSTERMANO', 'DU LAC ET DU PARC - RIVA DEL GARDA', 'LIBERTY - ARCO'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 11',
-    hotels: ['GARDA BELLEVUE - GARDA', 'RIVALTA - CASTELNUOVO DEL GARDA', 'SPLENDID SOLE - MANERBA DEL GARDA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 12',
-    hotels: ['SAVOY PALACE - RIVA DEL GARDA', 'MONASTERO - GARGNANO', 'POIANO - GARDA'],
-  },
-  {
-    destination: 'laghi',
-    label: 'Lake Garda — batch 13',
-    hotels: ['VILLA ARCADIO - SALO'],
+    hotels: ['LIDO PALACE - LAKE GARDA'],
   },
 
   // ── TOSCANA ──────────────────────────────────────────────────────────────
-  // Portal format: DISTINCTIVE NAME - CITY (English city names, no "Hotel" prefix)
+  // Portal format: NAME - CITIES_NAMES (verified from CSV)
   {
     destination: 'toscana',
     label: 'Florence',
-    hotels: ['GRIFONE - FLORENCE', 'STANLEY - FLORENCE', 'VILLA OLMI - FLORENCE'],
+    hotels: ['GRIFONE - FLORENCE', 'VILLA STANLEY - FLORENCE', 'VILLA OLMI FIRENZE - FLORENCE'],
   },
   {
     destination: 'toscana',
     label: 'Florence alternatives',
-    hotels: ['LOCANDA DELL\'AMOROSA - SINALUNGA', 'FATTORIA BELVEDERE - FLORENCE'],
+    hotels: ['RELAIS FATTORIA BELVEDERE - MONTECATINI VAL DI CECINA - PISA', 'FATTORIA DEGLI USIGNOLI - REGGELLO - FIRENZE'],
   },
   {
     destination: 'toscana',
-    label: 'Siena / Chianti',
-    hotels: ['EXECUTIVE - SIENA', 'PALAZZO DEI PRIORI - VOLTERRA', 'CHIOSTRO DEL CARMINE - SIENA'],
+    label: 'Siena / Volterra',
+    hotels: ['HOTEL EXECUTIVE - SIENA', 'PALAZZO DEI PRIORI - SIENA', 'IL CHIOSTRO DEL CARMINE - SIENA'],
   },
   {
     destination: 'toscana',
     label: 'Siena alternatives',
-    hotels: ['MONTAPERTI - SIENA', 'DEGLI USIGNOLI - FIRENZE'],
+    hotels: ['PRECISE HOUSE MONTAPERTI SIENA - SIENA', 'PARK HOTEL - SIENA'],
   },
   {
     destination: 'toscana',
-    label: 'Pisa',
-    hotels: ['BOLOGNA - PISA', 'SAN LINO - VOLTERRA'],
+    label: 'Pisa / Volterra',
+    hotels: ['HOTEL SAN LINO - VOLTERRA - PISA'],
   },
 
   // ── SARDEGNA ─────────────────────────────────────────────────────────────
+  // Portal format: NAME - CITIES_NAMES (verified from CSV)
   {
     destination: 'sardegna',
-    label: 'Cagliari — batch 1',
-    hotels: ['UNAHOTELS T Hotel Cagliari', "Caesar's Hotel", 'Flora Hotel'],
+    label: 'Costa Smeralda — batch 1',
+    hotels: ['CALA DI VOLPE, A LUXURY COLLECTION HOTEL, COSTA SMERALDA - PORTO CERVO - OLBIA TEMPIO', 'PITRIZZA - PORTO CERVO - OLBIA TEMPIO', 'ROMAZZINO, A LUXURY COLLECTION HOTEL, COSTA SMERALDA - PORTO CERVO - OLBIA TEMPIO'],
   },
   {
     destination: 'sardegna',
-    label: 'Cagliari — batch 2',
-    hotels: ['Holiday Inn Cagliari', 'Hotel Villa Fanny', 'Miramare Cagliari Hotel Museo'],
+    label: 'Costa Smeralda — batch 2',
+    hotels: ['CERVO HOTEL COSTA SMERALDA RESORT - PORTO CERVO - OLBIA TEMPIO', 'HOTEL PULICINU - BAJA SARDINIA - OLBIA-TEMPIO', 'GRAND HOTEL SMERALDO BEACH - BAJA SARDINIA - OLBIA-TEMPIO'],
   },
   {
     destination: 'sardegna',
-    label: 'Cagliari — batch 3',
-    hotels: ['Phi Hotel Sighientu'],
+    label: 'Costa Smeralda — batch 3',
+    hotels: ['GRAND RELAIS DEI NURAGHI - BAJA SARDINIA - OLBIA-TEMPIO', 'COLONNA GRAND HOTEL CAPO TESTA - SANTA TERESA DI GALLURA - OLBIA-TEMPIO'],
   },
   {
     destination: 'sardegna',
-    label: 'Alghero / Castelsardo — batch 1',
-    hotels: ['Rina Hotel Alghero', 'Hotel & Spa Riviera Castelsardo', 'Hotel Catalunya'],
+    label: 'North coast — batch 1',
+    hotels: ['MARINEDDA THALASSO & SPA - ISOLA ROSSA - OLBIA-TEMPIO', 'RELAX TORRERUJA THALASSO & SPA - ISOLA ROSSA - OLBIA-TEMPIO', 'HOTEL & SPA RIVIERA CASTELSARDO - CASTELSARDO - SASSARI'],
   },
   {
     destination: 'sardegna',
-    label: 'Alghero / Castelsardo — batch 2',
-    hotels: ['Villa Barbarina Nature Resort', 'Alghero Resort Country', 'Hotel Oasis'],
+    label: 'South — batch 1',
+    hotels: ['IS MORUS RELAIS - SANTA MARGHERITA DI PULA - CAGLIARI', 'HOTEL FLAMINGO - SANTA MARGHERITA DI PULA - CAGLIARI', 'FORTE VILLAGE RESORT - SANTA MARGHERITA DI PULA - CAGLIARI'],
   },
   {
     destination: 'sardegna',
-    label: 'Alghero / Castelsardo — batch 3',
-    hotels: ['Calabona', 'LH Pedraladda Resort', 'BW Hotel Blumarea'],
+    label: 'South — batch 2',
+    hotels: ['FORTE VILLAGE RESORT - IL VILLAGGIO - SANTA MARGHERITA DI PULA - CAGLIARI', 'FORTE VILLAGE RESORT - LE PALME - SANTA MARGHERITA DI PULA - CAGLIARI', 'FORTE VILLAGE RESORT - IL BORGO - SANTA MARGHERITA DI PULA - CAGLIARI'],
   },
   {
     destination: 'sardegna',
-    label: 'Alghero / Castelsardo — batch 4',
-    hotels: ['Hotel Punta Negra', 'San Marco', 'Soleado'],
-  },
-  {
-    destination: 'sardegna',
-    label: 'Alghero / Castelsardo — batch 5',
-    hotels: ['Janus Hotel', 'Alma di Alghero'],
-  },
-  {
-    destination: 'sardegna',
-    label: 'Olbia / Arzachena — batch 1',
-    hotels: ['Hotel Panorama', 'Mercure Olbia', 'Jazz Hotel'],
-  },
-  {
-    destination: 'sardegna',
-    label: 'Olbia / Arzachena — batch 2',
-    hotels: ['Essenza', 'For You Hotel', 'Colonna Palace Mediterraneo'],
-  },
-  {
-    destination: 'sardegna',
-    label: 'Olbia / Arzachena — batch 3',
-    hotels: ['Hotel DP Olbia Sardinia', 'Hotel Sa Pedra', 'Green Sporting Club'],
+    label: 'South — batch 3',
+    hotels: ['FORTE VILLAGE RESORT - HOTEL PINETA - SANTA MARGHERITA DI PULA - CAGLIARI', 'FORTE VILLAGE RESORT - VILLA DEL PARCO - SANTA MARGHERITA DI PULA - CAGLIARI', 'HOTEL REGINA MARGHERITA - CAGLIARI'],
   },
 
   // ── LIGURIA ──────────────────────────────────────────────────────────────
+  // Portal format: NAME - CITIES_NAMES (verified from CSV)
   {
     destination: 'liguria',
-    label: 'La Spezia / Cinque Terre',
-    hotels: ['CDH Hotel La Spezia', 'Firenze e Continentale', 'B&B Cinque Terre Gateway'],
+    label: 'Sanremo — batch 1',
+    hotels: ['ROYAL HOTEL SANREMO - SANREMO - IMPERIA', 'MIRAMARE THE PALACE HOTEL - SANREMO - IMPERIA', 'GRAND HOTEL LONDRA - SANREMO - IMPERIA'],
   },
   {
     destination: 'liguria',
-    label: 'Cinque Terre / Camogli',
-    hotels: ['Cinque Terre Bridge', 'Hotel Palme'],
+    label: 'Sanremo — batch 2',
+    hotels: ['GRAND HOTEL DES ANGLAIS - SANREMO - IMPERIA', 'NAZIONALE - SANREMO - IMPERIA'],
   },
   {
     destination: 'liguria',
-    label: 'Sestri Levante / Rapallo',
-    hotels: ['Grande Albergo', 'Grand Hotel dei Castelli', 'Grand Hotel Villa Balbi'],
+    label: 'Santa Margherita / Rapallo — batch 1',
+    hotels: ['IMPERIALE PALACE - SANTA MARGHERITA LIGURE - GENOA', 'GRAND HOTEL MIRAMARE - SANTA MARGHERITA LIGURE - GENOA', 'LIDO PALACE - SANTA MARGHERITA LIGURE - GENOA'],
   },
   {
     destination: 'liguria',
-    label: 'Sestri / Portovenere',
-    hotels: ['Hotel Vis a Vis', 'Hotel Cristallo Park', 'Hotiday Room Collection Porto Venere'],
+    label: 'Santa Margherita / Rapallo — batch 2',
+    hotels: ['EXCELSIOR PALACE - RAPALLO - GENUA', 'GRAND HOTEL BRISTOL RESORT & SPA - RAPALLO - GENUA', 'LAURIN - SANTA MARGHERITA LIGURE - GENOA'],
   },
   {
     destination: 'liguria',
-    label: 'Genova transit',
-    hotels: ['AC Hotel Genova by Marriott', 'BW Moderno Verdi', 'BW Plus City Hotel'],
+    label: 'Sestri Levante',
+    hotels: ['GRAND HOTEL DEI CASTELLI - SESTRI LEVANTE - GENOVA', 'GRAND HOTEL VILLA BALBI - SESTRI LEVANTE - GENOVA', 'GRANDE ALBERGO - SESTRI LEVANTE - GENOVA'],
+  },
+  {
+    destination: 'liguria',
+    label: 'Genova',
+    hotels: ['GRAND HOTEL SAVOIA - GENOA', 'HOTEL CONTINENTAL - GENOA'],
   },
 ];
 
