@@ -421,6 +421,73 @@
 
 </div>
 
+<!-- ── VP 2027 ── -->
+<div class="section-label" style="margin-top:1.5rem">VP 2027 — Automated Rate Scraper &amp; Proposals</div>
+
+<div class="grid">
+
+  <a class="card" href="https://docs.google.com/document/d/1b7jIUaRtyAcuy9vPEDSs0k6EZoqRWuLZP-Y3wdub-aU/edit" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-purple">📋</div>
+      <span class="status-badge status-new">New</span>
+    </div>
+    <div class="card-name">VP 2027 · Handover Notes</div>
+    <div class="card-subtitle">Rate scraper + proposals — full team reference</div>
+    <div class="card-desc">
+      Complete handover doc: what runs automatically (Sunday scrape + Monday proposals), how to trigger a manual scrape, where rate files live in Drive, proposal format, troubleshooting, and emergency contact. Read this first if something looks wrong.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">Operations Shared Drive · VP 2027 — Rates</span>
+      <span class="card-cta">Open <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+  <div class="card card-noop">
+    <div class="card-top">
+      <div class="card-icon icon-green">🤖</div>
+      <span class="status-badge status-live">Automated</span>
+    </div>
+    <div class="card-name">VP 2027 · Weekly Schedule</div>
+    <div class="card-subtitle">Runs every Sunday + Monday, no action needed</div>
+    <div class="card-desc">
+      <strong>Sunday 18:00</strong> — rate scraper fires for Laghi, Toscana, Sardegna, Liguria. Files land in Operations Shared Drive → Voyage Privé → VP 2027 — Rates.<br><br>
+      <strong>Monday 07:00</strong> — Claude builds package proposals from Sunday's rates, compares vs 2026 pricing (€ + %), and emails summary to info@ and operations@.
+    </div>
+    <div class="card-footer">
+      <span class="card-url">Scheduled tasks · claude.ai</span>
+      <span class="card-cta" style="color:#aaa;">Fully automatic</span>
+    </div>
+  </div>
+
+  <a class="card" href="booking_procedure.html#vp-rate-scraper" target="_blank" rel="noopener">
+    <div class="card-top">
+      <div class="card-icon icon-orange">⚡</div>
+      <span class="status-badge status-live">Live</span>
+    </div>
+    <div class="card-name">VP 2027 · Manual Scrape Trigger</div>
+    <div class="card-subtitle">bhi-tools-production.up.railway.app</div>
+    <div class="card-desc">
+      Need fresh rates mid-week? Open the Booking Procedure page and click the trigger links — or hit the URLs directly below. Each responds immediately; allow 2–3 hours for all destinations to complete.
+    </div>
+    <div class="endpoints">
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run</span><span class="ep-desc">All 4 destinations</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/laghi</span><span class="ep-desc">Lakes only</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/toscana</span><span class="ep-desc">Tuscany only</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/sardegna</span><span class="ep-desc">Sardinia only</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/liguria</span><span class="ep-desc">Liguria only</span></div>
+    </div>
+    <div class="card-footer">
+      <span class="card-url">bhi-tools-production.up.railway.app</span>
+      <span class="card-cta">Booking Procedure <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+  </a>
+
+</div>
+
+<div class="note-strip" style="margin-top:1px; margin-bottom:0;">
+  🆘 <strong>Emergency contact (Concezio away until end of November):</strong> for technical issues with the scraper or proposals, open a new chat with Claude and reference this project: <a href="https://claude.ai/project/01a0912d-e7ed-7706-a746-f8cc83a79208" target="_blank" style="color:#555;">claude.ai/project/01a0912d-e7ed-7706-a746-f8cc83a79208</a> — Claude has full context on how everything was set up.
+</div>
+
 <!-- ── PIPELINE ── -->
 <div class="section-label" style="margin-top:1.5rem">In the Pipeline</div>
 
@@ -462,7 +529,7 @@
 
 <footer>
   <span>Best Holidays in Italy · Internal Tools Dashboard</span>
-  <span>Last updated Sep 2026 · Not for external distribution</span>
+  <span>Last updated Nov 2026 · Not for external distribution</span>
 </footer>
 
 </body>
