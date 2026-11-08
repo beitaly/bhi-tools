@@ -588,29 +588,27 @@ app.get('/debug/hotels', (req, res) => {
       fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
       // Now we know the endpoint: hotel_search.php?term=<query>
-      // Query a-z plus 2-letter combos to harvest all hotels
-      const allHotels = new Map(); // text -> true (deduplicate)
+      // minimumInputLength: 2, so use 2-letter prefixes (aa, ab, ... zz)
+      const allHotels = new Map(); // text -> id (deduplicate)
+      const alpha = 'abcdefghijklmnopqrstuvwxyz';
+      const queries = [];
+      for (const a of alpha) for (const b of alpha) queries.push(a + b);
 
-      const queries = 'abcdefghijklmnopqrstuvwxyz'.split('');
-      for (const letter of queries) {
+      for (const term of queries) {
         const results = await page.evaluate(async ({ baseUrl, term }) => {
           const r = await fetch(`${baseUrl}/hotel_search.php?term=${encodeURIComponent(term)}`, { credentials: 'include' });
           const text = await r.text();
           try { return JSON.parse(text); } catch(e) { return { error: text.substring(0, 200) }; }
-        }, { baseUrl: BASE_URL, term: letter });
+        }, { baseUrl: BASE_URL, term });
 
-        if (results && results.results && Array.isArray(results.results)) {
-          for (const item of results.results) {
-            if (item.text) allHotels.set(item.text, item.id || '');
-          }
-        } else if (Array.isArray(results)) {
-          for (const item of results) {
-            if (item.text) allHotels.set(item.text, item.id || '');
-          }
+        const items = (results && results.results) ? results.results : (Array.isArray(results) ? results : []);
+        for (const item of items) {
+          if (item.text && !allHotels.has(item.text)) allHotels.set(item.text, item.id || '');
         }
-        console.log(`  letter ${letter}: got ${results && results.results ? results.results.length : '?'} results (total unique: ${allHotels.size})`);
-        await page.waitForTimeout(200);
+        if (items.length > 0) console.log(`  ${term}: ${items.length} results (total unique: ${allHotels.size})`);
+        await page.waitForTimeout(100);
       }
+      console.log(`  → Finished a-z sweep, total unique hotels: ${allHotels.size}`);
 
       const hotels = [...allHotels.keys()].sort();
       const outPath = path.join(DOWNLOAD_DIR, '_hotels_list.txt');
