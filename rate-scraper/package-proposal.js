@@ -422,20 +422,14 @@ async function readProrata(sheets, ssId) {
 // ─── Sheet builder ────────────────────────────────────────────────────────────
 
 /**
- * Build and upload a VP Package Proposal Google Sheet.
+ * Create a new Google Spreadsheet in Drive with named tabs.
+ * Returns { ssId, webViewLink, tabIds: { tabName: sheetId } }
  *
- * @param {object} opts
- *   destination:  string
- *   title:        string   — sheet title
- *   pkgDefs:      { pkgKey: { label, expTotal } }
- *   monthData:    { month: { pkgKey: { min, blended, vp27, vp26 } } }
- *   folderId:     string
- *   runDate:      string
- *   tier:         string   — e.g. '4★S', '4★', '' for non-Lakes
- *   variantLabel: string   — e.g. 'v3 Classic', '' for non-Lakes
+ * @param {string} title      — file name in Drive
+ * @param {string} folderId   — parent Drive folder
+ * @param {string[]} tabNames — list of tab names (first tab replaces default "Sheet1")
  */
-async function buildProposalSheet(opts) {
-  const { title, pkgDefs, monthData, folderId, runDate, tier, variantLabel, notes } = opts;
+async function createSpreadsheetWithTabs(title, folderId, tabNames) {
   const drive  = getDriveClient();
   const sheets = getSheetsClient();
 
@@ -448,16 +442,64 @@ async function buildProposalSheet(opts) {
     },
     fields: 'id, webViewLink',
   });
-  const ssId = createResp.data.id;
+  const ssId        = createResp.data.id;
+  const webViewLink = createResp.data.webViewLink;
 
-  const PKG_KEYS     = Object.keys(pkgDefs);
+  // Rename first tab and add the rest
+  const addRequests = [];
+  addRequests.push({
+    updateSheetProperties: {
+      properties: { sheetId: 0, title: tabNames[0] },
+      fields: 'title',
+    },
+  });
+  for (let i = 1; i < tabNames.length; i++) {
+    addRequests.push({ addSheet: { properties: { title: tabNames[i] } } });
+  }
+  const batchResp = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: ssId,
+    requestBody: { requests: addRequests },
+  });
+
+  // Map tab name → sheetId
+  const tabIds = { [tabNames[0]]: 0 };
+  const replies = batchResp.data.replies || [];
+  for (let i = 1; i < tabNames.length; i++) {
+    const reply = replies[i];  // replies[0] is updateSheetProperties (no sheetId)
+    tabIds[tabNames[i]] = reply?.addSheet?.properties?.sheetId ?? i;
+  }
+
+  return { ssId, webViewLink, tabIds };
+}
+
+/**
+ * Write VP proposal data into one tab of an existing spreadsheet.
+ *
+ * @param {object} opts
+ *   ssId:         string   — target spreadsheet ID
+ *   sheetId:      number   — numeric tab ID (0-based)
+ *   tabName:      string   — tab name (for A1 range notation)
+ *   pkgDefs:      { pkgKey: { label, expTotal } }
+ *   monthData:    { pkgKey: { month: { min, blended, vp27, vp26 } } }
+ *   title:        string
+ *   runDate:      string
+ *   tier:         string   — e.g. '4★S', '4★', ''
+ *   variantLabel: string
+ *   notes:        string
+ *   usedMonths:   string[]
+ */
+async function writeProposalTab(opts) {
+  const { ssId, sheetId, tabName, pkgDefs, monthData, title, runDate, tier, variantLabel, notes, usedMonths } = opts;
+  const sheets = getSheetsClient();
+
+  const PKG_KEYS      = Object.keys(pkgDefs);
   const PKG_COL_WIDTH = 6;
 
   // ── Build value matrix ──────────────────────────────────────────────────────
   const colHeaders = ['MIN (pp)', 'Blended (pp)', 'VP 2027 (pp)', 'VP 2026 (pp)', 'Diff €', 'Diff %'];
 
   // Row 1: Title
-  // Row 2: Note
+  // Row 2: Subtitle/note
   // Row 3: blank
   // Row 4: package group headers
   // Row 5: column sub-headers
@@ -472,8 +514,6 @@ async function buildProposalSheet(opts) {
   for (let i = 0; i < PKG_KEYS.length; i++) row5.push(...colHeaders);
 
   const dataRows = [row4, row5];
-
-  const usedMonths = ACTIVE_MONTHS.filter(m => Object.values(monthData).some(md => md[m]));
 
   for (const month of usedMonths) {
     const row = [month];
@@ -523,16 +563,19 @@ async function buildProposalSheet(opts) {
     [notesText],
   ];
 
+  // Escape single quotes in tab name for A1 notation
+  const safeTab = tabName.replace(/'/g, "\\'");
   await sheets.spreadsheets.values.update({
     spreadsheetId: ssId,
-    range: 'Sheet1!A1',
+    range: `'${safeTab}'!A1`,
     valueInputOption: 'RAW',
     requestBody: { values: allRows },
   });
 
   // ── Formatting ───────────────────────────────────────────────────────────────
+  const sid            = sheetId;   // numeric tab ID
   const PKG_COL_START  = 1;
-  const DATA_START_ROW = 5;   // 0-indexed row of first month (after 3 header rows + pkg row + sub-header)
+  const DATA_START_ROW = 5;
   const DATA_END_ROW   = DATA_START_ROW + usedMonths.length;
   const TOTAL_COLS     = 1 + PKG_KEYS.length * PKG_COL_WIDTH;
 
@@ -551,7 +594,7 @@ async function buildProposalSheet(opts) {
 
   fmtRequests.push({
     repeatCell: {
-      range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+      range: { sheetId: sid, startRowIndex: 0, endRowIndex: 1 },
       cell: { userEnteredFormat: {
         backgroundColor: COLOR_HEADER_DARK,
         textFormat: { foregroundColor: COLOR_WHITE, bold: true, fontSize: 12 },
@@ -562,7 +605,7 @@ async function buildProposalSheet(opts) {
 
   fmtRequests.push({
     repeatCell: {
-      range: { sheetId: 0, startRowIndex: 1, endRowIndex: 2 },
+      range: { sheetId: sid, startRowIndex: 1, endRowIndex: 2 },
       cell: { userEnteredFormat: {
         backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 },
         textFormat: { italic: true },
@@ -576,14 +619,14 @@ async function buildProposalSheet(opts) {
     const color    = COLOR_PKG_ALT[p % COLOR_PKG_ALT.length];
     fmtRequests.push({
       repeatCell: {
-        range: { sheetId: 0, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
+        range: { sheetId: sid, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
         cell: { userEnteredFormat: { backgroundColor: color, textFormat: { bold: true } } },
         fields: 'userEnteredFormat(backgroundColor,textFormat)',
       },
     });
     fmtRequests.push({
       mergeCells: {
-        range: { sheetId: 0, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
+        range: { sheetId: sid, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
         mergeType: 'MERGE_ALL',
       },
     });
@@ -591,7 +634,7 @@ async function buildProposalSheet(opts) {
 
   fmtRequests.push({
     repeatCell: {
-      range: { sheetId: 0, startRowIndex: 4, endRowIndex: 5 },
+      range: { sheetId: sid, startRowIndex: 4, endRowIndex: 5 },
       cell: { userEnteredFormat: {
         backgroundColor: COLOR_HEADER_MID,
         textFormat: { foregroundColor: COLOR_WHITE, bold: true },
@@ -606,7 +649,7 @@ async function buildProposalSheet(opts) {
     for (const offset of [4, 5]) {
       fmtRequests.push({
         repeatCell: {
-          range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
+          range: { sheetId: sid, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
                    startColumnIndex: startCol + offset, endColumnIndex: startCol + offset + 1 },
           cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } },
           fields: 'userEnteredFormat(horizontalAlignment)',
@@ -617,7 +660,7 @@ async function buildProposalSheet(opts) {
 
   fmtRequests.push({
     repeatCell: {
-      range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
+      range: { sheetId: sid, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
                startColumnIndex: 0, endColumnIndex: 1 },
       cell: { userEnteredFormat: { textFormat: { bold: true } } },
       fields: 'userEnteredFormat(textFormat)',
@@ -627,7 +670,7 @@ async function buildProposalSheet(opts) {
   const notesRowIdx = DATA_END_ROW + 1;
   fmtRequests.push({
     repeatCell: {
-      range: { sheetId: 0, startRowIndex: notesRowIdx, endRowIndex: notesRowIdx + 1 },
+      range: { sheetId: sid, startRowIndex: notesRowIdx, endRowIndex: notesRowIdx + 1 },
       cell: { userEnteredFormat: {
         backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 },
         textFormat: { italic: true, fontSize: 8 },
@@ -638,7 +681,7 @@ async function buildProposalSheet(opts) {
 
   fmtRequests.push({
     autoResizeDimensions: {
-      dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: TOTAL_COLS },
+      dimensions: { sheetId: sid, dimension: 'COLUMNS', startIndex: 0, endIndex: TOTAL_COLS },
     },
   });
 
@@ -646,12 +689,80 @@ async function buildProposalSheet(opts) {
     spreadsheetId: ssId,
     requestBody: { requests: fmtRequests },
   });
+}
 
-  console.log(`  ✓ Proposal sheet: ${createResp.data.webViewLink}`);
-  return createResp.data;
+/**
+ * Build and upload a VP Package Proposal Google Sheet (single-tier, single-tab).
+ * Used for Sardegna / Toscana / Liguria which have no tier split.
+ */
+async function buildProposalSheet(opts) {
+  const { title, pkgDefs, monthData, folderId, runDate, tier, variantLabel, notes } = opts;
+  const drive = getDriveClient();
+
+  const usedMonths = ACTIVE_MONTHS.filter(m =>
+    Object.values(monthData).some(md => md[m])
+  );
+
+  const { ssId, webViewLink, tabIds } = await createSpreadsheetWithTabs(title, folderId, ['Proposal']);
+  const sheetId = tabIds['Proposal'] ?? 0;
+
+  await writeProposalTab({
+    ssId, sheetId, tabName: 'Proposal',
+    pkgDefs, monthData,
+    title, runDate, tier, variantLabel, notes,
+    usedMonths,
+  });
+
+  console.log(`  ✓ Proposal sheet: ${webViewLink}`);
+  return { id: ssId, webViewLink };
 }
 
 // ─── LAGHI builder ────────────────────────────────────────────────────────────
+
+/**
+ * Compute pkgDefs + monthData for one tier of one variant.
+ */
+function computeLaghiVariantData(variantDef, perNight, vpContract, prorata, tierKey) {
+  const vp2026tier = VP2026.laghi[tierKey];
+  const pkgDefs   = {};
+  const monthData = {};
+
+  for (const [pkgKey, pkg] of Object.entries(variantDef.packages)) {
+    pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
+    monthData[pkgKey] = {};
+
+    for (const month of ACTIVE_MONTHS) {
+      const { nights, expTotal } = pkg;
+
+      let minAccNetto     = 0;
+      let blendedAccNetto = 0;
+      let hasRates        = true;
+
+      for (const lake of ['maggiore', 'como', 'garda']) {
+        const n = nights[lake];
+        if (!n) continue;
+        const lakeData = perNight[lake]?.[month];
+        if (!lakeData?.min || !lakeData?.avg) { hasRates = false; break; }
+        minAccNetto     += lakeData.min * n;
+        blendedAccNetto += ((lakeData.avg + lakeData.min) / 2) * n;
+      }
+
+      const minSell     = hasRates ? sellPrice(minAccNetto, expTotal)     : null;
+      const blendedSell = hasRates ? sellPrice(blendedAccNetto, expTotal) : null;
+
+      let vp27 = vpContract[pkgKey]?.[month] ?? null;
+      if (vp27 === null && blendedSell !== null && pkgKey === '12nts') vp27 = blendedSell;
+
+      const vp26 = (vp2026tier && vp2026tier[pkgKey])
+        ? (vp2026tier[pkgKey][month] ?? null)
+        : (prorata[pkgKey]?.[month]?.vp26 ?? null);
+
+      monthData[pkgKey][month] = { min: minSell, blended: blendedSell, vp27, vp26 };
+    }
+  }
+
+  return { pkgDefs, monthData };
+}
 
 async function buildLaghiProposal(proposalFolderId, runDate) {
   console.log('\n📦  Building Laghi VP package proposals…');
@@ -659,98 +770,67 @@ async function buildLaghiProposal(proposalFolderId, runDate) {
   const sheets = getSheetsClient();
   const files  = [];
 
-  // We build two tiers: 4★S (always available) and 4★ (requires SS_4STAR_ID)
+  // Tiers to include
   const tierConfigs = [
-    { tier: '4★S', tierKey: '4sstar', ssId: SS_4S_ID,     label: '4S★' },
-    ...(SS_4STAR_ID ? [{ tier: '4★',  tierKey: '4star',  ssId: SS_4STAR_ID, label: '4★'  }] : []),
+    { tier: '4★S', tierKey: '4sstar', ssId: SS_4S_ID },
+    ...(SS_4STAR_ID ? [{ tier: '4★', tierKey: '4star', ssId: SS_4STAR_ID }] : []),
   ];
 
-  for (const { tier, tierKey, ssId, label } of tierConfigs) {
-    console.log(`\n  ── Tier: ${tier} (source: ${ssId}) ──`);
-
-    // Read all three tab sets once per tier
-    console.log('  → Reading per-night lake rates (5nts, 7nts, 9nts tabs)…');
-    const [data5, data7, data9] = await Promise.all([
+  // Read source data for each tier up front
+  console.log('  → Reading source sheets for all tiers…');
+  const tierData = {};
+  await Promise.all(tierConfigs.map(async ({ tier, tierKey, ssId }) => {
+    const [data5, data7, data9, vpContract, prorata] = await Promise.all([
       readLakeMediaRates(sheets, ssId, '5 nts'),
       readLakeMediaRates(sheets, ssId, '7 nts'),
       readLakeMediaRates(sheets, ssId, '9 nts'),
+      readVpContractPrices(sheets, ssId),
+      readProrata(sheets, ssId),
     ]);
-
-    // Build merged per-night rates
     const perNight = { maggiore: {}, como: {}, garda: {} };
     for (const month of ACTIVE_MONTHS) {
       perNight.maggiore[month] = data5?.rates?.maggiore?.[month] || data7?.rates?.maggiore?.[month] || data9?.rates?.maggiore?.[month] || null;
       perNight.como[month]     = data5?.rates?.como?.[month]     || data7?.rates?.como?.[month]     || data9?.rates?.como?.[month]     || null;
       perNight.garda[month]    = data7?.rates?.garda?.[month]    || data9?.rates?.garda?.[month]    || null;
     }
+    tierData[tierKey] = { tier, ssId, perNight, vpContract, prorata };
+  }));
 
-    console.log('  → Reading VP Contract Paste and Prorata tabs…');
-    const [vpContract, prorata] = await Promise.all([
-      readVpContractPrices(sheets, ssId),
-      readProrata(sheets, ssId),
-    ]);
+  // One file per variant, one tab per tier
+  for (const [variantKey, variantDef] of Object.entries(LAGHI_VARIANTS)) {
+    console.log(`\n  → Variant: ${variantDef.label}`);
 
-    const vp2026tier = VP2026.laghi[tierKey];
+    const tabNames  = tierConfigs.map(tc => tc.tier);   // ['4★S'] or ['4★S', '4★']
+    const fileTitle = `VP 2027 — Laghi — ${variantDef.label} — ${runDate}`;
 
-    // Build one sheet per variant
-    for (const [variantKey, variantDef] of Object.entries(LAGHI_VARIANTS)) {
-      console.log(`  → Building variant: ${variantDef.label}`);
+    console.log(`    Creating file "${fileTitle}" with tabs: ${tabNames.join(', ')}…`);
+    const { ssId: outSsId, webViewLink, tabIds } = await createSpreadsheetWithTabs(fileTitle, proposalFolderId, tabNames);
 
-      const pkgDefs   = {};
-      const monthData = {};
+    for (const { tier, tierKey } of tierConfigs) {
+      const { perNight, vpContract, prorata } = tierData[tierKey];
+      const { pkgDefs, monthData } = computeLaghiVariantData(variantDef, perNight, vpContract, prorata, tierKey);
 
-      for (const [pkgKey, pkg] of Object.entries(variantDef.packages)) {
-        pkgDefs[pkgKey] = { label: pkg.label, expTotal: pkg.expTotal };
+      const usedMonths = ACTIVE_MONTHS.filter(m =>
+        Object.values(monthData).some(md => md[m])
+      );
 
-        for (const month of ACTIVE_MONTHS) {
-          if (!monthData[pkgKey]) monthData[pkgKey] = {};
-
-          const { nights, expTotal } = pkg;
-          const lakes = ['maggiore', 'como', 'garda'];
-
-          let minAccNetto     = 0;
-          let blendedAccNetto = 0;
-          let hasRates        = true;
-
-          for (const lake of lakes) {
-            const n = nights[lake];
-            if (!n) continue;
-            const lakeData = perNight[lake]?.[month];
-            if (!lakeData?.min || !lakeData?.avg) { hasRates = false; break; }
-            minAccNetto     += lakeData.min * n;
-            blendedAccNetto += ((lakeData.avg + lakeData.min) / 2) * n;
-          }
-
-          const minSell     = hasRates ? sellPrice(minAccNetto, expTotal)     : null;
-          const blendedSell = hasRates ? sellPrice(blendedAccNetto, expTotal) : null;
-
-          // VP 2027: from VP Contract Paste for 5/7/9nts; blended estimate for 12nts
-          let vp27 = vpContract[pkgKey]?.[month] ?? null;
-          if (vp27 === null && blendedSell !== null && pkgKey === '12nts') {
-            vp27 = blendedSell;
-          }
-
-          // VP 2026: from hardcoded PDF actuals (Jun–Oct only for Lakes)
-          const vp26 = (vp2026tier && vp2026tier[pkgKey])
-            ? (vp2026tier[pkgKey][month] ?? null)
-            : (prorata[pkgKey]?.[month]?.vp26 ?? null);
-
-          monthData[pkgKey][month] = { min: minSell, blended: blendedSell, vp27, vp26 };
-        }
-      }
-
-      const sheetTitle = `VP 2027 — Laghi ${label} — ${variantDef.label} — ${runDate}`;
-      const file = await buildProposalSheet({
-        title:        sheetTitle,
+      console.log(`    Writing tab "${tier}"…`);
+      await writeProposalTab({
+        ssId:         outSsId,
+        sheetId:      tabIds[tier] ?? 0,
+        tabName:      tier,
         pkgDefs,
         monthData,
-        folderId:     proposalFolderId,
+        title:        fileTitle,
         runDate,
-        tier:         tier,
+        tier,
         variantLabel: variantDef.label,
+        usedMonths,
       });
-      files.push(file);
     }
+
+    console.log(`  ✓ ${webViewLink}`);
+    files.push({ id: outSsId, webViewLink });
   }
 
   return files;
