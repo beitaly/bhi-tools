@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const { buildPackageProposal } = require('./package-proposal');
+const { buildStopSaleReport }  = require('./stop-sale');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -29,6 +30,30 @@ const DRIVE_FOLDERS = {
   toscana:  process.env.DRIVE_FOLDER_TOSCANA  || '',
   sardegna: process.env.DRIVE_FOLDER_SARDEGNA || '',
   liguria:  process.env.DRIVE_FOLDER_LIGURIA  || '',
+  puglia:   process.env.DRIVE_FOLDER_PUGLIA   || '',
+};
+
+// VP 2027 output folder IDs (proposal sheets + stop sale reports land here)
+const VP_FOLDERS = {
+  laghi:    process.env.VP_2027_FOLDER_LAGHI    || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1',
+  toscana:  process.env.VP_2027_FOLDER_TOSCANA  || '',
+  sardegna: process.env.VP_2027_FOLDER_SARDEGNA || '',
+  liguria:  process.env.VP_2027_FOLDER_LIGURIA  || '',
+  puglia:   process.env.VP_2027_FOLDER_PUGLIA   || '',
+};
+
+// Source spreadsheet IDs used by the proposal builder (populated after each scrape)
+const PROPOSAL_SS_IDS = {
+  laghi: [
+    '1QT9lNez2q8gDBN_XbLw4X666lGhvE_W0z0a1DKoaF0s',  // search_236 Como
+    '1kmfhfwYbYPrIz4g74W4LGrwvd3m3ouCJcB-UUvxrqbU',  // search_237 Maggiore
+    '1DtFDRZUNPFYcOnfDh3CEzXKVU5tk2cpUy2A8AAVdOBA',  // search_240 Garda
+  ],
+  // For other destinations the XLS files in Drive are the source — IDs added post-scrape
+  toscana:  [],
+  sardegna: [],
+  liguria:  [],
+  puglia:   [],
 };
 
 // ─── Hotel batches (max 3 per search) ────────────────────────────────────────
@@ -3013,28 +3038,53 @@ app.get('/files/:filename', (req, res) => {
   res.download(filePath);
 });
 
-// GET /proposal/laghi  → build VP package proposal from existing Drive rate sheets (no scrape)
+// GET /proposal/:dest?sale=VP+Flash+Jan+2027  → build VP proposal only (no scrape, no stop sale)
 app.get('/proposal/:destination?', async (req, res) => {
-  const dest = req.params.destination || 'laghi';
-  console.log(`\n📊  VP proposal triggered — destination: ${dest}`);
-  res.json({ status: 'started', destination: dest, ts: new Date().toISOString() });
+  const dest     = req.params.destination || 'laghi';
+  const saleName = req.query.sale || null;
+  const runDate  = new Date().toISOString().slice(0, 10);
+  console.log(`\n📊  VP proposal triggered — destination: ${dest}, sale: ${saleName || '(none)'}`);
+  res.json({ status: 'started', destination: dest, sale: saleName, ts: new Date().toISOString() });
 
-  if (dest === 'laghi') {
-    const LAGHI_SEARCH_SS_IDS = [
-      '1QT9lNez2q8gDBN_XbLw4X666lGhvE_W0z0a1DKoaF0s',  // search_236 Como
-      '1kmfhfwYbYPrIz4g74W4LGrwvd3m3ouCJcB-UUvxrqbU',  // search_237 Maggiore
-      '1DtFDRZUNPFYcOnfDh3CEzXKVU5tk2cpUy2A8AAVdOBA',  // search_240 Garda
-    ];
-    const VP_2027_FOLDER_ID = process.env.VP_2027_FOLDER_LAGHI || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1';
-    const runDate = new Date().toISOString().slice(0, 10);
-    buildPackageProposal('laghi', LAGHI_SEARCH_SS_IDS, VP_2027_FOLDER_ID, runDate)
-      .then(file => {
-        if (file) console.log(`\n📋  VP proposal ready: ${file.webViewLink}`);
-      })
-      .catch(err => console.error('Package proposal error:', err.message));
-  } else {
-    console.log(`  ⚠  No proposal handler yet for destination: ${dest}`);
+  const vpFolder = VP_FOLDERS[dest];
+  const ssIds    = PROPOSAL_SS_IDS[dest];
+
+  if (!vpFolder) {
+    console.log(`  ⚠  No VP folder configured for ${dest} — set VP_2027_FOLDER_${dest.toUpperCase()} env var`);
+    return;
   }
+  if (!ssIds || ssIds.length === 0) {
+    console.log(`  ⚠  No source spreadsheet IDs for ${dest} — populate PROPOSAL_SS_IDS.${dest} in scraper.js`);
+    return;
+  }
+
+  buildPackageProposal(dest, ssIds, vpFolder, runDate, saleName)
+    .then(file => {
+      if (file) console.log(`\n📋  VP proposal ready (${dest}): ${file.webViewLink}`);
+    })
+    .catch(err => console.error(`Package proposal error (${dest}):`, err.message));
+});
+
+// GET /stopsale/:dest?sale=VP+Flash+Jan+2027  → build stop sale report only (no scrape)
+app.get('/stopsale/:destination?', async (req, res) => {
+  const dest      = req.params.destination || 'laghi';
+  const saleName  = req.query.sale || null;
+  const runDate   = new Date().toISOString().slice(0, 10);
+  const rateFolder = DRIVE_FOLDERS[dest];
+  const vpFolder   = VP_FOLDERS[dest];
+  console.log(`\n🛑  Stop sale triggered — destination: ${dest}, sale: ${saleName || '(none)'}`);
+  res.json({ status: 'started', destination: dest, sale: saleName, ts: new Date().toISOString() });
+
+  if (!rateFolder || !vpFolder) {
+    console.log(`  ⚠  Drive folder IDs not configured for ${dest}`);
+    return;
+  }
+
+  buildStopSaleReport(dest, rateFolder, vpFolder, runDate, saleName)
+    .then(file => {
+      if (file) console.log(`\n🛑  Stop sale report ready (${dest}): ${file.webViewLink}`);
+    })
+    .catch(err => console.error(`Stop sale report error (${dest}):`, err.message));
 });
 
 app.get('/run/:destination?', async (req, res) => {
@@ -3052,22 +3102,44 @@ app.get('/run/:destination?', async (req, res) => {
       console.log(`\n✅  Scrape complete. ${results.length} succeeded, ${errors.length} failed.`);
       if (errors.length) console.error('Errors:', errors);
 
-      // After a successful Laghi scrape, build the VP 2027 package proposal sheet
-      // Skip if ?proposal=false (i.e. this is not the final chunk)
-      if (!skipProposal && (!dest || dest === 'laghi')) {
-        console.log('\n📊  Building VP 2027 package proposal…');
-        const LAGHI_SEARCH_SS_IDS = [
-          '1QT9lNez2q8gDBN_XbLw4X666lGhvE_W0z0a1DKoaF0s',  // search_236 Como
-          '1kmfhfwYbYPrIz4g74W4LGrwvd3m3ouCJcB-UUvxrqbU',  // search_237 Maggiore
-          '1DtFDRZUNPFYcOnfDh3CEzXKVU5tk2cpUy2A8AAVdOBA',  // search_240 Garda
-        ];
-        const VP_2027_FOLDER_ID = process.env.VP_2027_FOLDER_LAGHI || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1';
-        const runDate = new Date().toISOString().slice(0, 10);
-        try {
-          const proposalFile = await buildPackageProposal('laghi', LAGHI_SEARCH_SS_IDS, VP_2027_FOLDER_ID, runDate);
-          if (proposalFile) console.log(`\n📋  VP proposal ready: ${proposalFile.webViewLink}`);
-        } catch (err) {
-          console.error('Package proposal error:', err.message);
+      // Skip post-processing if ?proposal=false (not the final chunk of a split run)
+      if (skipProposal) return;
+
+      const runDate = new Date().toISOString().slice(0, 10);
+      const saleName = req.query.sale || null;  // e.g. ?sale=VP+Flash+Jan+2027
+
+      // Destinations to process (run for the requested dest, or all if unspecified)
+      const destinations = dest ? [dest] : ['laghi','toscana','sardegna','liguria','puglia'];
+
+      for (const d of destinations) {
+        const vpFolder   = VP_FOLDERS[d];
+        const rateFolder = DRIVE_FOLDERS[d];
+
+        // 1. Build VP package proposal (uses Google Sheets as source for Laghi;
+        //    XLS Drive files as source for other destinations when IDs are available)
+        if (vpFolder && PROPOSAL_SS_IDS[d] && PROPOSAL_SS_IDS[d].length > 0) {
+          console.log(`\n📊  Building VP 2027 package proposal — ${d}…`);
+          try {
+            const proposalFile = await buildPackageProposal(d, PROPOSAL_SS_IDS[d], vpFolder, runDate, saleName);
+            if (proposalFile) console.log(`\n📋  VP proposal ready (${d}): ${proposalFile.webViewLink}`);
+          } catch (err) {
+            console.error(`Package proposal error (${d}):`, err.message);
+          }
+        } else {
+          console.log(`\n📊  Skipping proposal for ${d} — no source spreadsheet IDs configured yet`);
+        }
+
+        // 2. Build stop sale report (reads XLS files from Drive rate folder)
+        if (rateFolder && vpFolder) {
+          console.log(`\n🛑  Building stop sale report — ${d}…`);
+          try {
+            const ssFile = await buildStopSaleReport(d, rateFolder, vpFolder, runDate, saleName);
+            if (ssFile) console.log(`\n🛑  Stop sale report ready (${d}): ${ssFile.webViewLink}`);
+          } catch (err) {
+            console.error(`Stop sale report error (${d}):`, err.message);
+          }
+        } else {
+          console.log(`\n🛑  Skipping stop sale for ${d} — Drive folder IDs not configured`);
         }
       }
     })

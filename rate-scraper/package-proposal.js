@@ -764,8 +764,9 @@ function computeLaghiVariantData(variantDef, perNight, vpContract, prorata, tier
   return { pkgDefs, monthData };
 }
 
-async function buildLaghiProposal(proposalFolderId, runDate) {
+async function buildLaghiProposal(proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Laghi VP package proposals…');
+  const salePrefix = saleName ? `${saleName} — ` : '';
 
   const sheets = getSheetsClient();
   const files  = [];
@@ -801,7 +802,7 @@ async function buildLaghiProposal(proposalFolderId, runDate) {
     console.log(`\n  → Variant: ${variantDef.label}`);
 
     const tabNames  = tierConfigs.map(tc => tc.tier);   // ['4★S'] or ['4★S', '4★']
-    const fileTitle = `VP 2027 — Laghi — ${variantDef.label} — ${runDate}`;
+    const fileTitle = `${salePrefix}VP 2027 — Laghi — ${variantDef.label} — ${runDate}`;
 
     console.log(`    Creating file "${fileTitle}" with tabs: ${tabNames.join(', ')}…`);
     const { ssId: outSsId, webViewLink, tabIds } = await createSpreadsheetWithTabs(fileTitle, proposalFolderId, tabNames);
@@ -844,8 +845,9 @@ async function buildLaghiProposal(proposalFolderId, runDate) {
  * @param {string} proposalFolderId
  * @param {string} runDate
  */
-async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate) {
+async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Sardegna VP package proposal…');
+  const salePrefix = saleName ? `${saleName} — ` : '';
 
   // For Sardinia, source sheet not yet available at the time of writing.
   // We use hardcoded 2026 VP actuals and emit a note that 2027 rates need the source sheet.
@@ -875,7 +877,7 @@ async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate) {
     }
   }
 
-  const sheetTitle = `VP 2027 — Sardegna — Package Proposal — ${runDate}`;
+  const sheetTitle = `${salePrefix}VP 2027 — Sardegna — Package Proposal — ${runDate}`;
   return buildProposalSheet({
     title:        sheetTitle,
     pkgDefs,
@@ -892,8 +894,9 @@ async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate) {
 
 // ─── TOSCANA builder ──────────────────────────────────────────────────────────
 
-async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate) {
+async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Toscana VP package proposal…');
+  const salePrefix = saleName ? `${saleName} — ` : '';
 
   // Tuscany months (from contract): Oct, Nov, Dec, Jan, Feb, Mar, Apr, May, Jun
   const toscanaMonths = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
@@ -917,7 +920,7 @@ async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate) {
     }
   }
 
-  const sheetTitle = `VP 2027 — Toscana — Package Proposal — ${runDate}`;
+  const sheetTitle = `${salePrefix}VP 2027 — Toscana — Package Proposal — ${runDate}`;
   return buildProposalSheet({
     title:        sheetTitle,
     pkgDefs,
@@ -934,8 +937,9 @@ async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate) {
 
 // ─── LIGURIA builder ──────────────────────────────────────────────────────────
 
-async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate) {
+async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Liguria VP package proposal…');
+  const salePrefix = saleName ? `${saleName} — ` : '';
 
   // Liguria months (from contract): Jun, Jul, Aug, Sep, Oct
   const liguriaMonths = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
@@ -959,7 +963,7 @@ async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate) {
     }
   }
 
-  const sheetTitle = `VP 2027 — Liguria — Package Proposal — ${runDate}`;
+  const sheetTitle = `${salePrefix}VP 2027 — Liguria — Package Proposal — ${runDate}`;
   return buildProposalSheet({
     title:        sheetTitle,
     pkgDefs,
@@ -974,31 +978,95 @@ async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate) {
   });
 }
 
+// ─── PUGLIA packages ──────────────────────────────────────────────────────────
+// Puglia: 7nts and 10nts packages.
+// Experiences (TBD — placeholders until VP contract is confirmed):
+//   7nts:  Alberobello trulli tour €40 + olive oil tasting €25 = €65
+//   10nts: 7nts experiences + Lecce walking tour €30 + masseria dinner €45 = €140
+const PUGLIA_PACKAGES = {
+  nts7:  { nts: 7,  label: '7 Nights', expTotal: 65  },
+  nts10: { nts: 10, label: '10 Nights', expTotal: 140 },
+};
+
+// ─── PUGLIA 2026 VP actuals ───────────────────────────────────────────────────
+// No 2026 VP Puglia contract exists yet — set to null until confirmed.
+const VP2026_PUGLIA = {
+  nts7:  { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
+  nts10: { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
+};
+
+// ─── PUGLIA builder ───────────────────────────────────────────────────────────
+
+async function buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
+  console.log('\n📦  Building Puglia VP package proposal…');
+  const salePrefix = saleName ? `${saleName} — ` : '';
+
+  // Puglia active months (assumed): Apr, May, Jun, Jul, Aug, Sep, Oct
+  const pugliaMonths = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+
+  const pkgDefs   = {};
+  const monthData = {};
+
+  for (const [pkgKey, pkg] of Object.entries(PUGLIA_PACKAGES)) {
+    pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
+    monthData[pkgKey] = {};
+
+    for (const month of pugliaMonths) {
+      const vp26 = VP2026_PUGLIA[pkgKey]?.[month] ?? null;
+
+      monthData[pkgKey][month] = {
+        min:     null,   // awaiting scraped source sheet
+        blended: null,
+        vp27:    null,
+        vp26,
+      };
+    }
+  }
+
+  const sheetTitle = `${salePrefix}VP 2027 — Puglia — Package Proposal — ${runDate}`;
+  return buildProposalSheet({
+    title:        sheetTitle,
+    pkgDefs,
+    monthData,
+    folderId:     proposalFolderId,
+    runDate,
+    tier:         '',
+    variantLabel: 'Standard (4★)',
+    notes:        'SCAFFOLD — VP 2026 contract not yet finalised  |  ' +
+                  'MIN/Blended/VP 2027: awaiting scrape + source sheet  |  ' +
+                  'Experience costs: 7nts €65pp (trulli tour + olive oil), 10nts €140pp (+Lecce tour + masseria dinner)',
+  });
+}
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 /**
  * Build VP package proposals for the given destination.
  *
- * @param {string}   destination           — 'laghi' | 'toscana' | 'sardegna' | 'liguria'
+ * @param {string}   destination           — 'laghi' | 'toscana' | 'sardegna' | 'liguria' | 'puglia'
  * @param {string[]} driveSpreadsheetIds   — scraped source sheet IDs (from scraper.js)
  * @param {string}   proposalFolderId      — Drive folder for output sheets
  * @param {string}   runDate               — YYYY-MM-DD
+ * @param {string}   [saleName]            — Optional VP flash sale name for file labelling
  */
-async function buildPackageProposal(destination, driveSpreadsheetIds, proposalFolderId, runDate) {
+async function buildPackageProposal(destination, driveSpreadsheetIds, proposalFolderId, runDate, saleName) {
   const sourceSheetId = Array.isArray(driveSpreadsheetIds) ? driveSpreadsheetIds[0] : null;
 
   switch (destination) {
     case 'laghi':
-      return buildLaghiProposal(proposalFolderId, runDate);
+      return buildLaghiProposal(proposalFolderId, runDate, saleName);
 
     case 'sardegna':
-      return buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate);
+      return buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
 
     case 'toscana':
-      return buildToscanaProposal(sourceSheetId, proposalFolderId, runDate);
+      return buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
 
     case 'liguria':
-      return buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate);
+      return buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
+
+    case 'puglia':
+      return buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
 
     default:
       console.log(`  ℹ  Package proposal not implemented for '${destination}' — skipping.`);
@@ -1013,6 +1081,7 @@ module.exports = {
   SARDEGNA_PACKAGES,
   TOSCANA_PACKAGES,
   LIGURIA_PACKAGES,
+  PUGLIA_PACKAGES,
   TOTAL_MARKUP,
 };
 
