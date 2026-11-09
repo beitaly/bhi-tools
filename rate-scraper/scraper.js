@@ -3009,6 +3009,25 @@ app.get('/files/:filename', (req, res) => {
   res.download(filePath);
 });
 
+// GET /debug-sheet/:ssId/:sheetName  → returns raw cell values from a Sheets tab (for structure inspection)
+app.get('/debug-sheet/:ssId/:sheetName', async (req, res) => {
+  try {
+    const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
+    const auth = new google.auth.GoogleAuth({
+      credentials: creds,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: req.params.ssId,
+      range: `'${req.params.sheetName}'!A1:N50`,
+    });
+    res.json({ values: result.data.values || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /proposal/laghi  → build VP package proposal from existing Drive rate sheets (no scrape)
 app.get('/proposal/:destination?', async (req, res) => {
   const dest = req.params.destination || 'laghi';
