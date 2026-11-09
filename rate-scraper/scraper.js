@@ -3009,6 +3009,30 @@ app.get('/files/:filename', (req, res) => {
   res.download(filePath);
 });
 
+// GET /proposal/laghi  → build VP package proposal from existing Drive rate sheets (no scrape)
+app.get('/proposal/:destination?', async (req, res) => {
+  const dest = req.params.destination || 'laghi';
+  console.log(`\n📊  VP proposal triggered — destination: ${dest}`);
+  res.json({ status: 'started', destination: dest, ts: new Date().toISOString() });
+
+  if (dest === 'laghi') {
+    const LAGHI_SEARCH_SS_IDS = [
+      '1QT9lNez2q8gDBN_XbLw4X666lGhvE_W0z0a1DKoaF0s',  // search_236 Como
+      '1kmfhfwYbYPrIz4g74W4LGrwvd3m3ouCJcB-UUvxrqbU',  // search_237 Maggiore
+      '1DtFDRZUNPFYcOnfDh3CEzXKVU5tk2cpUy2A8AAVdOBA',  // search_240 Garda
+    ];
+    const VP_2027_FOLDER_ID = process.env.VP_2027_FOLDER_LAGHI || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1';
+    const runDate = new Date().toISOString().slice(0, 10);
+    buildPackageProposal('laghi', LAGHI_SEARCH_SS_IDS, VP_2027_FOLDER_ID, runDate)
+      .then(file => {
+        if (file) console.log(`\n📋  VP proposal ready: ${file.webViewLink}`);
+      })
+      .catch(err => console.error('Package proposal error:', err.message));
+  } else {
+    console.log(`  ⚠  No proposal handler yet for destination: ${dest}`);
+  }
+});
+
 app.get('/run/:destination?', async (req, res) => {
   const dest = req.params.destination || null;
   console.log(`\n🚀  Scrape triggered — destination: ${dest || 'ALL'}`);
