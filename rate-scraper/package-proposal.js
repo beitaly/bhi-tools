@@ -49,8 +49,8 @@ const EXPERIENCES = {
   // ⚠️  PENDING — Concezio to confirm exact netto costs for the Bardolino wine experiences
   // Used in the 7nts and 9nts packages (not the 5nts).
   // Set these once confirmed; set to null to flag as "not yet set" in the output sheet.
-  garda_wine_bardolino_7nts: null,  // TODO: €? — wine tasting farmhouse near Bardolino (simple)
-  garda_wine_bardolino_9nts: null,  // TODO: €? — wine experience near Bardolino (elaborate: vineyards + 4 wines + olive oil + delicacies)
+  garda_wine_bardolino_7nts: 30,  // €30/pp — wine tasting farmhouse near Bardolino (simple)
+  garda_wine_bardolino_9nts: 50,  // €50/pp — wine experience near Bardolino (elaborate: vineyards + 4 wines + olive oil + delicacies)
 };
 
 // ─── Package definitions ──────────────────────────────────────────────────────
