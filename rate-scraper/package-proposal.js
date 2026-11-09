@@ -2,35 +2,44 @@
  * package-proposal.js
  * Post-processing module for the BHI Rate Scraper.
  *
- * Reads from the Italian_Lakes_2027_4S master spreadsheet (4★ Superior filter)
- * and builds a VP Package Proposal Google Sheet with:
- *   - Months as rows (Mar–Oct)
- *   - Per package (5nts, 7nts, 9nts, 12nts): MIN sell, Blended sell,
- *     VP 2027 contract price, VP 2026 actual, Diff €, Diff %
+ * Builds VP Package Proposal Google Sheets for all four BHI destinations:
+ *   - Laghi (Italian Lakes)   — 3 package variants, 4★ and 4★S tiers, 5/7/9/12nts
+ *   - Toscana (Tuscany)       — 5nts and 7nts
+ *   - Sardegna (Sardinia)     — 7nts, 10nts, 12nts (with and without experiences)
+ *   - Liguria                 — 5nts and 7nts
  *
  * ─── PRICING CHAIN ───────────────────────────────────────────────────────────
  * VP sell price = (accommodation_netto_pp + experiences_netto_pp) × 1.06 × 1.23
  *   1.06 = BHI markup (6%)
  *   1.23 = Italian VAT (23%)
  *
- * ─── DATA SOURCE ────────────────────────────────────────────────────────────
- * Primary: Italian_Lakes_2027_4S spreadsheet (ID: 1PWNq3r4V8fDZW9Cnn3tgh4qsfXX5bdPQdlcpxC5r_H0)
- *   - "5 nts", "7 nts", "9 nts" tabs: per-hotel MEDIA AVG/MIN rates per lake
- *   - "VP Contract Paste" tab: final 2027 VP contract prices (rounded €10)
- *   - "Prorata" tab: 2027 blended sell + 2026 VP actual per month
- * 12nts: derived from per-night lake rates extracted from the 9nts tab
+ * ─── LAGHI PACKAGE VARIANTS ──────────────────────────────────────────────────
+ * v1 "Black Friday" (5nts only):
+ *   5nts: 3 Mgre + 2 Como
+ *   Experiences: Maggiore wine tasting €16 + Como boat €28 (5nts short version) = €44
  *
- * ─── EXPERIENCE COSTS (netto per person) ────────────────────────────────────
- * Lago Maggiore:  Cheese & wine tasting — €33/pp
- * Lago di Como:   Crociera with aperitivo — €55/pp
- * Lago di Garda:  Wine farmhouse tasting (7nts simple) — €30/pp
- *                 Wine experience near Bardolino (9nts/12nts elaborate) — €50/pp
+ * v2 "Maggiore & Garda" (7nts only):
+ *   7nts: 3 Mgre + 2 Garda + NO Como
+ *   Experiences: Maggiore wine €16 + Garda boat €12 = €28 (5nts boat rates)
+ *   NOTE: Como boat (€50) only included for 7nts+ WITH Como nights
  *
- * ─── PACKAGE STRUCTURE (nights per lake) ────────────────────────────────────
- * 5nts:  3 Maggiore + 2 Como  (no Garda)
- * 7nts:  3 Maggiore + 2 Como + 2 Garda
- * 9nts:  3 Maggiore + 2 Como + 4 Garda
- * 12nts: 4 Maggiore + 4 Como + 4 Garda  (derived)
+ * v3 "Classic" (7nts, 9nts, 12nts):
+ *   7nts:  3 Mgre + 2 Como + 2 Garda
+ *   9nts:  3 Mgre + 2 Como + 4 Garda
+ *   12nts: 4 Mgre + 4 Como + 4 Garda
+ *   Experiences (all variants):
+ *     Maggiore wine tasting: €33
+ *     Como boat with aperitivo: €55 (7nts+)
+ *     Garda wine: €30 (7nts), €50 (9nts/12nts), wine tasting €35 (12nts only → see below)
+ *   12nts also includes wine tasting in Tuscany/elsewhere: +€35
+ *
+ * ─── 2026 VP ACTUAL PRICES (from Drive PDFs) ─────────────────────────────────
+ * Hardcoded from June 2026 VP contracts.
+ *
+ * ─── DATA SOURCE (Laghi) ─────────────────────────────────────────────────────
+ * 4★S: Italian_Lakes_2027_4S (ID: SS_4S_ID)
+ * 4★ : Italian_Lakes_2027_4 (ID: SS_4STAR_LAKES_ID env var — sheet TBD post-scrape)
+ * Tuscany/Sardinia/Liguria: scraped XLS files from Drive (post-scrape)
  */
 
 'use strict';
@@ -38,51 +47,8 @@
 const { google } = require('googleapis');
 
 // ─── Spreadsheet IDs ─────────────────────────────────────────────────────────
-const SS_4S_ID = '196Egjjzswzz7ul2qgHcBlxNM0xsZQXK-IDibY7VkV-8'; // Italian_Lakes_2027_4S (copy in shared drive)
-
-// ─── Experience costs (netto per person) ─────────────────────────────────────
-const EXPERIENCES = {
-  maggiore_cheese_tasting:   33,  // €33/pp — degustazione vini cantina con vista alpina
-  como_boat_aperitivo:       55,  // €55/pp — crociera sul Lago di Como con aperitivo
-  garda_wine_bardolino_7nts: 30,  // €30/pp — degustazione vini (simple, 7nts)
-  garda_wine_bardolino_9nts: 50,  // €50/pp — wine experience elaborate (9nts/12nts)
-};
-
-// ─── Package definitions ──────────────────────────────────────────────────────
-const PACKAGES = {
-  '5nts': {
-    nights:      { maggiore: 3, como: 2, garda: 0 },
-    expTotal:    EXPERIENCES.maggiore_cheese_tasting + EXPERIENCES.como_boat_aperitivo,  // 88
-    tabName:     '5 nts',
-    label:       '5 nights (3 Mgre + 2 Como)',
-  },
-  '7nts': {
-    nights:      { maggiore: 3, como: 2, garda: 2 },
-    expTotal:    EXPERIENCES.maggiore_cheese_tasting + EXPERIENCES.como_boat_aperitivo + EXPERIENCES.garda_wine_bardolino_7nts,  // 118
-    tabName:     '7 nts',
-    label:       '7 nights (3 Mgre + 2 Como + 2 Garda)',
-  },
-  '9nts': {
-    nights:      { maggiore: 3, como: 2, garda: 4 },
-    expTotal:    EXPERIENCES.maggiore_cheese_tasting + EXPERIENCES.como_boat_aperitivo + EXPERIENCES.garda_wine_bardolino_9nts,  // 138
-    tabName:     '9 nts',
-    label:       '9 nights (3 Mgre + 2 Como + 4 Garda)',
-  },
-  '12nts': {
-    nights:      { maggiore: 4, como: 4, garda: 4 },
-    expTotal:    EXPERIENCES.maggiore_cheese_tasting + EXPERIENCES.como_boat_aperitivo + EXPERIENCES.garda_wine_bardolino_9nts,  // 138
-    tabName:     null,   // no dedicated tab; derived from 9nts per-night rates
-    label:       '12 nights (4 Mgre + 4 Como + 4 Garda)',
-  },
-};
-
-// ─── Pricing constants ────────────────────────────────────────────────────────
-const BHI_MARKUP  = 1.06;
-const ITALIAN_VAT = 1.23;
-const TOTAL_MARKUP = BHI_MARKUP * ITALIAN_VAT;  // 1.3038
-
-// ─── Months ───────────────────────────────────────────────────────────────────
-const ACTIVE_MONTHS = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+const SS_4S_ID         = '196Egjjzswzz7ul2qgHcBlxNM0xsZQXK-IDibY7VkV-8';
+const SS_4STAR_ID      = process.env.SS_4STAR_LAKES_ID || '';  // set once 4★ sheet is built
 
 // ─── Google API clients ───────────────────────────────────────────────────────
 function getAuth() {
@@ -98,27 +64,195 @@ function getSheetsClient() { return google.sheets({ version: 'v4', auth: getAuth
 // ─── Helper: parse €-prefixed number string ───────────────────────────────────
 function parseEuro(str) {
   if (!str) return null;
-  const v = parseFloat(String(str).replace(/[€,\s]/g, ''));
+  const v = parseFloat(String(str).replace(/[€,.\s]/g, '').replace(',', '.'));
+  // Handle European decimal (1.050 = 1050)
+  const v2 = parseFloat(String(str).replace(/[€\s]/g, '').replace('.', '').replace(',', '.'));
+  const best = isNaN(v2) ? v : v2;
+  return isNaN(best) || best === 0 ? null : best;
+}
+
+// Better euro parser that handles "€1.050" (European thousand separator)
+function parseEuroStr(str) {
+  if (!str) return null;
+  // Remove currency symbol and spaces
+  let s = String(str).replace(/[€\s]/g, '');
+  // If contains both . and , treat . as thousand sep, , as decimal
+  if (s.includes('.') && s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.includes('.') && !s.includes(',')) {
+    // Could be thousand sep (1.050) or decimal (1.5)
+    const parts = s.split('.');
+    if (parts[1] && parts[1].length === 3) {
+      // Thousand separator
+      s = s.replace(/\./g, '');
+    }
+    // else keep as decimal
+  } else if (s.includes(',') && !s.includes('.')) {
+    s = s.replace(',', '.');
+  }
+  const v = parseFloat(s);
   return isNaN(v) || v === 0 ? null : v;
 }
 
+// ─── Months ───────────────────────────────────────────────────────────────────
+const ACTIVE_MONTHS = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+
+// ─── Pricing constants ────────────────────────────────────────────────────────
+const BHI_MARKUP   = 1.06;
+const ITALIAN_VAT  = 1.23;
+const TOTAL_MARKUP = BHI_MARKUP * ITALIAN_VAT;  // 1.3038
+
+function sellPrice(accNettoPP, expNettoPP) {
+  return Math.round((accNettoPP + expNettoPP) * TOTAL_MARKUP);
+}
+
+// ─── 2026 VP Actuals (hardcoded from Drive contract PDFs) ────────────────────
+//
+// Laghi: months Jun–Oct only (winter not in scope for Lakes)
+// Key: { 'Jun': price, ... }  — missing months = null (no contract that season)
+const VP2026 = {
+  laghi: {
+    // 4★ tier
+    '4star': {
+      '5nts':  { Jun: 470,  Jul: 500,  Aug: 580,  Sep: 540,  Oct: 470 },
+      '7nts':  { Jun: 690,  Jul: 720,  Aug: 760,  Sep: 740,  Oct: 620 },
+      '9nts':  { Jun: 950,  Jul: 1050, Aug: 1100, Sep: 1050, Oct: 980 },
+      '12nts': null,  // no 12nts contract in 2026
+    },
+    // 4★S tier
+    '4sstar': {
+      '5nts':  { Jun: 620,  Jul: 650,  Aug: 680,  Sep: 670,  Oct: 580 },
+      '7nts':  { Jun: 890,  Jul: 940,  Aug: 1050, Sep: 1020, Oct: 820 },
+      '9nts':  { Jun: 1100, Jul: 1190, Aug: 1250, Sep: 1200, Oct: 1100 },
+      '12nts': null,
+    },
+  },
+
+  // Sardinia: Aug 2026 contract covers Aug26–Jun27 (all one contract)
+  // The PDF includes both 2026 and 2027 dates — we store them all, keyed to what's relevant
+  sardegna: {
+    // 7nts (with experiences: Tavolara boat + wine tasting = €80pp)
+    '7nts': {
+      Aug: 665,  Sep: 610,  Oct: 350,  Nov: 340,
+      // 2027 months from same contract (VP carry-over)
+      Mar: 350,  Apr: 390,  May: 400,  Jun: 560,
+    },
+    // 10nts (with experiences: boat + wine + cooking class = €170pp)
+    '10nts': {
+      Aug: 950,  Sep: 875,  Oct: 500,  Nov: 490,
+      Mar: 500,  Apr: 560,  May: 570,  Jun: 800,
+    },
+    // 12nts (with experiences: boat + wine + cooking class = €170pp)
+    '12nts': {
+      Aug: 1140, Sep: 1046, Oct: 600,  Nov: 590,
+      Mar: 600,  Apr: 670,  May: 690,  Jun: 960,
+    },
+  },
+
+  // Tuscany: Sept 2026 contract covers Oct26–Jun27
+  toscana: {
+    '5nts': { Oct: 400, Nov: 360, Dec: 290, Jan: 300, Feb: 270, Mar: 290, Apr: 375, May: 400, Jun: 420 },
+    '7nts': { Oct: 500, Nov: 390, Dec: 375, Jan: 425, Feb: 397, Mar: 425, Apr: 520, May: 580, Jun: 590 },
+  },
+
+  // Liguria: June 2026 contract covers Jun–Oct
+  liguria: {
+    '5nts': { Jun: 590, Jul: 630, Aug: 670, Sep: 580, Oct: 500 },
+    '7nts': { Jun: 830, Jul: 885, Aug: 940, Sep: 820, Oct: 700 },
+  },
+};
+
+// ─── Package configs ──────────────────────────────────────────────────────────
+
+// LAGHI — three variants, each has its own experience stack
+// Experience costs are netto per person
+
+const LAGHI_VARIANTS = {
+  // v1: Black Friday — 5nts only, stripped-down experience stack
+  'v1_black_friday': {
+    label: 'v1 — Black Friday (5 nts)',
+    packages: {
+      '5nts': {
+        nights:   { maggiore: 3, como: 2, garda: 0 },
+        // Shorter versions of experiences (5nts pricing)
+        expTotal: 16 + 28,   // Maggiore wine €16 + Como boat 5nts €28 = €44
+        tabName:  '5 nts',
+        label:    '5 nts (3 Mgre + 2 Como)',
+      },
+    },
+  },
+  // v2: Maggiore & Garda — 7nts, NO Como
+  'v2_maggiore_garda': {
+    label: 'v2 — Maggiore & Garda (7 nts)',
+    packages: {
+      '7nts': {
+        nights:   { maggiore: 3, como: 0, garda: 2 },
+        expTotal: 16 + 12,   // Maggiore wine €16 + Garda boat €12 = €28
+        tabName:  '7 nts',
+        label:    '7 nts (3 Mgre + 2 Garda, no Como)',
+      },
+    },
+  },
+  // v3: Classic — 7/9/12nts with all 3 lakes
+  'v3_classic': {
+    label: 'v3 — Classic (7/9/12 nts)',
+    packages: {
+      '7nts': {
+        nights:   { maggiore: 3, como: 2, garda: 2 },
+        expTotal: 33 + 55 + 30,   // Mgre wine €33 + Como boat €55 + Garda wine 7nts €30 = €118
+        tabName:  '7 nts',
+        label:    '7 nts (3 Mgre + 2 Como + 2 Garda)',
+      },
+      '9nts': {
+        nights:   { maggiore: 3, como: 2, garda: 4 },
+        expTotal: 33 + 55 + 50,   // Mgre €33 + Como €55 + Garda elaborate 9nts €50 = €138
+        tabName:  '9 nts',
+        label:    '9 nts (3 Mgre + 2 Como + 4 Garda)',
+      },
+      '12nts': {
+        nights:   { maggiore: 4, como: 4, garda: 4 },
+        expTotal: 33 + 55 + 50 + 35,  // + extra wine tasting €35 = €173
+        tabName:  null,   // derived from 9nts per-night rates
+        label:    '12 nts (4 Mgre + 4 Como + 4 Garda)',
+      },
+    },
+  },
+};
+
+// SARDEGNA — single variant, three durations
+const SARDEGNA_PACKAGES = {
+  '7nts': {
+    expTotal: 80,   // Tavolara boat + wine tasting = €80pp
+    label:    '7 nts (Cagliari → Alghero → Olbia)',
+  },
+  '10nts': {
+    expTotal: 170,  // boat + wine + cooking class = €170pp
+    label:    '10 nts (Cagliari → Alghero → Arbatax → Olbia)',
+  },
+  '12nts': {
+    expTotal: 170,  // same experience stack as 10nts
+    label:    '12 nts (full island circuit)',
+  },
+};
+
+// TOSCANA — single variant
+const TOSCANA_PACKAGES = {
+  '5nts': { expTotal: 35,  label: '5 nts (Florence hills + Volterra)' },
+  '7nts': { expTotal: 45,  label: '7 nts (Florence + Siena + Volterra)' },
+};
+
+// LIGURIA — single variant
+const LIGURIA_PACKAGES = {
+  '5nts': { expTotal: 45,  label: '5 nts (La Spezia + Rapallo/SML)' },
+  '7nts': { expTotal: 60,  label: '7 nts (La Spezia + Rapallo/SML full)' },
+};
+
+// ─── Google Sheets helpers ────────────────────────────────────────────────────
+
 /**
- * Read a package tab from Italian_Lakes_2027_4S.
+ * Read a package tab from the Lakes master spreadsheet.
  * Returns per-night rates per lake per month:
- *   { maggiore: { Mar: { avg, min }, ... }, como: {...}, garda: {...} }
- *
- * The tab structure:
- *   Row 1: title "[merged] ITALIAN LAKES 2027  4S★  ·  X NTS"
- *   Row 2: months (B=Mar, C=Apr, ... I=Oct)
- *   Row 3: "DEST 1 nights — Lago Maggiore: 3"
- *   Row 4: "DEST 2 nights — Lago di Como: 2"
- *   Row 5: "DEST 3 nights — Lago di Garda: X"
- *   Then per-lake sections with hotel rows (AVG pp/night, MIN pp/night)
- *   followed by "MEDIA AVG" and "MEDIA MIN" summary rows.
- *
- * MEDIA AVG/MIN are TOTAL accommodation costs pp for all nights at that lake
- * (nights already multiplied in by the per-hotel calculation).
- * We divide by the destination's night count to get per-night rates.
+ *   { rates: { maggiore: { Mar: { avg, min }, ... }, como: {...}, garda: {...} }, nightsInTab }
  */
 async function readLakeMediaRates(sheets, ssId, tabName) {
   const resp = await sheets.spreadsheets.values.get({
@@ -128,19 +262,16 @@ async function readLakeMediaRates(sheets, ssId, tabName) {
   const rows = resp.data.values || [];
   if (rows.length < 6) return null;
 
-  // Row 1 (index 1): month headers in cols B–I (index 1–8)
-  const monthRow   = rows[1] || [];
-  const monthCols  = {};   // month → column index (0-based)
+  const monthRow  = rows[1] || [];
+  const monthCols = {};
   ACTIVE_MONTHS.forEach(m => {
     const idx = monthRow.findIndex(c => String(c).trim() === m);
     if (idx >= 0) monthCols[m] = idx;
   });
 
-  // Rows 2–4 (indices 2, 3, 4): DEST night-count rows only
-  // Row 5 (index 5) is the first lake section header — must NOT be included
   const nightsMap = { maggiore: 0, como: 0, garda: 0 };
   for (let r = 2; r <= 4; r++) {
-    const row = rows[r] || [];
+    const row   = rows[r] || [];
     const label = String(row[0] || '').toLowerCase();
     const count = parseInt(row[1] || '0', 10) || 0;
     if (label.includes('maggiore')) nightsMap.maggiore = count;
@@ -148,7 +279,6 @@ async function readLakeMediaRates(sheets, ssId, tabName) {
     else if (label.includes('garda'))   nightsMap.garda   = count;
   }
 
-  // Scan remaining rows for lake sections and MEDIA rows
   const LAKE_PATTERNS = {
     maggiore: /lago\s+maggiore|dest\s+1/i,
     como:     /lago\s+di\s+como|dest\s+2/i,
@@ -162,16 +292,14 @@ async function readLakeMediaRates(sheets, ssId, tabName) {
     const row  = rows[r] || [];
     const colA = String(row[0] || '').trim();
 
-    // Detect new lake section
     for (const [lake, pattern] of Object.entries(LAKE_PATTERNS)) {
       if (pattern.test(colA)) { currentLake = lake; break; }
     }
     if (!currentLake) continue;
 
     const nights = nightsMap[currentLake];
-    if (!nights) continue;   // e.g. Garda nights = 0 in 5nts tab
+    if (!nights) continue;
 
-    // Look for MEDIA AVG and MEDIA MIN rows
     const isMediaAvg = /media\s+avg/i.test(colA);
     const isMediaMin = /media\s+min/i.test(colA);
     if (!isMediaAvg && !isMediaMin) continue;
@@ -179,9 +307,9 @@ async function readLakeMediaRates(sheets, ssId, tabName) {
     ACTIVE_MONTHS.forEach(month => {
       const colIdx = monthCols[month];
       if (colIdx === undefined) return;
-      const totalCost = parseEuro(row[colIdx]);
+      const totalCost = parseEuroStr(row[colIdx]);
       if (totalCost === null) return;
-      const perNight = totalCost / nights;  // convert total-nights cost → per-night
+      const perNight = totalCost / nights;
 
       if (!result[currentLake][month]) result[currentLake][month] = {};
       if (isMediaAvg) result[currentLake][month].avg = perNight;
@@ -194,7 +322,7 @@ async function readLakeMediaRates(sheets, ssId, tabName) {
 
 /**
  * Read VP Contract Paste tab.
- * Returns: { '5nts': { Mar: 900, Apr: 1000, ... }, '7nts': {...}, '9nts': {...} }
+ * Returns: { '5nts': { Mar: 900, ... }, '7nts': {...}, '9nts': {...} }
  */
 async function readVpContractPrices(sheets, ssId) {
   const resp = await sheets.spreadsheets.values.get({
@@ -203,8 +331,7 @@ async function readVpContractPrices(sheets, ssId) {
   });
   const rows = resp.data.values || [];
 
-  // Find month header row (contains "Mar", "Apr", ...)
-  let monthCols = {};
+  let monthCols    = {};
   let headerRowIdx = -1;
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
@@ -226,7 +353,7 @@ async function readVpContractPrices(sheets, ssId) {
       if (pattern.test(colA)) {
         result[pkg] = {};
         ACTIVE_MONTHS.forEach(month => {
-          const v = parseEuro(row[monthCols[month]]);
+          const v = parseEuroStr(row[monthCols[month]]);
           if (v !== null) result[pkg][month] = v;
         });
         break;
@@ -237,13 +364,8 @@ async function readVpContractPrices(sheets, ssId) {
 }
 
 /**
- * Read Prorata tab for 2027 blended sell price (pp) and 2026 VP actual (pp).
- * Returns: { '5nts': { Mar: { sell27, vp26 }, ... }, '7nts': {...}, '9nts': {...} }
- *
- * Tab structure (repeating blocks):
- *   "5 NTS" header → sub-header (Month, 2027 Sell Price (pp), 2026 VP Actual (pp), ...)
- *   → rows Mar–Oct
- *   blank row → "7 NTS" block → ... → "9 NTS" block
+ * Read Prorata tab for 2027 blended sell + 2026 VP actual.
+ * Returns: { '5nts': { Mar: { sell27, vp26 }, ... }, ... }
  */
 async function readProrata(sheets, ssId) {
   const resp = await sheets.spreadsheets.values.get({
@@ -252,7 +374,7 @@ async function readProrata(sheets, ssId) {
   });
   const rows = resp.data.values || [];
 
-  const result = {};
+  const result      = {};
   const PKG_PATTERNS = { '5nts': /5\s*nts/i, '7nts': /7\s*nts/i, '9nts': /9\s*nts/i };
 
   let currentPkg = null;
@@ -263,7 +385,6 @@ async function readProrata(sheets, ssId) {
     const row  = rows[r] || [];
     const colA = String(row[0] || '').trim();
 
-    // Detect package section header
     for (const [pkg, pattern] of Object.entries(PKG_PATTERNS)) {
       if (pattern.test(colA) && !colA.toLowerCase().includes('month')) {
         currentPkg = pkg;
@@ -275,7 +396,6 @@ async function readProrata(sheets, ssId) {
     }
     if (!currentPkg) continue;
 
-    // Detect sub-header row (contains "2027 Sell" and "2026 VP")
     const rowStr = row.join(' ').toLowerCase();
     if (rowStr.includes('2027') && rowStr.includes('2026') && rowStr.includes('month')) {
       row.forEach((c, i) => {
@@ -286,12 +406,11 @@ async function readProrata(sheets, ssId) {
       continue;
     }
 
-    // Data rows: Month in col A
     if (sell27Col < 0 || vp26Col < 0) continue;
     if (!ACTIVE_MONTHS.includes(colA)) continue;
 
-    const sell27 = parseEuro(row[sell27Col]);
-    const vp26   = parseEuro(row[vp26Col]);
+    const sell27 = parseEuroStr(row[sell27Col]);
+    const vp26   = parseEuroStr(row[vp26Col]);
     if (sell27 !== null || vp26 !== null) {
       result[currentPkg][colA] = { sell27, vp26 };
     }
@@ -300,44 +419,26 @@ async function readProrata(sheets, ssId) {
   return result;
 }
 
-/**
- * Compute per-night lake rates for 12nts by extracting per-night values
- * from the 9nts tab (which has all 3 lakes).
- * Returns: { maggiore: { Mar: { avg, min }, ... }, como: {...}, garda: {...} }
- */
-async function readPerNightRatesFrom9nts(sheets, ssId) {
-  const { rates } = await readLakeMediaRates(sheets, ssId, '9 nts') || {};
-  if (!rates) return null;
-  // rates already contains per-night values (divided by night count)
-  return rates;
-}
+// ─── Sheet builder ────────────────────────────────────────────────────────────
 
 /**
- * Compute sell price per person for a given accommodation netto pp and experience total.
- */
-function sellPrice(accNettoPP, expTotal) {
-  return Math.round((accNettoPP + expTotal) * TOTAL_MARKUP);
-}
-
-/**
- * Build and upload the VP Package Proposal sheet to Drive.
+ * Build and upload a VP Package Proposal Google Sheet.
  *
- * Layout:
- *   Row 1: Title
- *   Row 2: Note / date
- *   Row 3: blank
- *   Row 4: Package group headers (spanning 6 cols each)
- *   Row 5: Column sub-headers
- *   Rows 6–13: Data rows (Mar → Oct)
- *   Row 14: blank
- *   Row 15: Legend / notes
+ * @param {object} opts
+ *   destination:  string
+ *   title:        string   — sheet title
+ *   pkgDefs:      { pkgKey: { label, expTotal } }
+ *   monthData:    { month: { pkgKey: { min, blended, vp27, vp26 } } }
+ *   folderId:     string
+ *   runDate:      string
+ *   tier:         string   — e.g. '4★S', '4★', '' for non-Lakes
+ *   variantLabel: string   — e.g. 'v3 Classic', '' for non-Lakes
  */
-async function buildProposalSheet(ratesConfig, folderId, runDate) {
+async function buildProposalSheet(opts) {
+  const { title, pkgDefs, monthData, folderId, runDate, tier, variantLabel, notes } = opts;
   const drive  = getDriveClient();
   const sheets = getSheetsClient();
 
-  // ── Create the spreadsheet ──────────────────────────────────────────────────
-  const title = `VP 2027 — Laghi 4S★ — Package Proposal ${runDate}`;
   const createResp = await drive.files.create({
     supportsAllDrives: true,
     requestBody: {
@@ -349,110 +450,78 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
   });
   const ssId = createResp.data.id;
 
-  const { perNightRates, vpContract, prorata } = ratesConfig;
-  const PKG_KEYS = ['5nts', '7nts', '9nts', '12nts'];
+  const PKG_KEYS     = Object.keys(pkgDefs);
+  const PKG_COL_WIDTH = 6;
 
-  // ── Build data matrix ───────────────────────────────────────────────────────
-  // Row 4: package group header
+  // ── Build value matrix ──────────────────────────────────────────────────────
+  const colHeaders = ['MIN (pp)', 'Blended (pp)', 'VP 2027 (pp)', 'VP 2026 (pp)', 'Diff €', 'Diff %'];
+
+  // Row 1: Title
+  // Row 2: Note
+  // Row 3: blank
+  // Row 4: package group headers
   // Row 5: column sub-headers
-  // Rows 6–13: months
+  // Rows 6–N: data months
 
-  // Row 4 — group headers
   const row4 = [''];
   for (const pkg of PKG_KEYS) {
-    row4.push(PACKAGES[pkg].label, '', '', '', '', '');
+    row4.push(pkgDefs[pkg].label, '', '', '', '', '');
   }
 
-  // Row 5 — column sub-headers
   const row5 = ['Month'];
-  const colHeaders = ['MIN (pp)', 'Blended (pp)', 'VP 2027 (pp)', 'VP 2026 (pp)', 'Diff €', 'Diff %'];
   for (let i = 0; i < PKG_KEYS.length; i++) row5.push(...colHeaders);
 
-  // Rows 6–13 — data
   const dataRows = [row4, row5];
 
-  for (const month of ACTIVE_MONTHS) {
+  const usedMonths = ACTIVE_MONTHS.filter(m => Object.values(monthData).some(md => md[m]));
+
+  for (const month of usedMonths) {
     const row = [month];
-
     for (const pkg of PKG_KEYS) {
-      const { nights, expTotal } = PACKAGES[pkg];
-      const lakes = ['maggiore', 'como', 'garda'];
-
-      // ── Compute MIN and Blended from per-night lake rates ─────────────────
-      let minAccNetto     = 0;
-      let blendedAccNetto = 0;
-      let hasRates        = true;
-
-      for (const lake of lakes) {
-        const n = nights[lake];
-        if (!n) continue;
-        const lakeData = perNightRates[lake]?.[month];
-        if (!lakeData?.min || !lakeData?.avg) { hasRates = false; break; }
-        minAccNetto     += lakeData.min * n;
-        blendedAccNetto += ((lakeData.avg + lakeData.min) / 2) * n;
+      const d = monthData[pkg]?.[month];
+      if (!d) {
+        row.push('—', '—', '—', '—', '—', '—');
+        continue;
       }
-
-      const minSell     = hasRates ? sellPrice(minAccNetto, expTotal)     : null;
-      const blendedSell = hasRates ? sellPrice(blendedAccNetto, expTotal) : null;
-
-      // ── VP 2027 contract price ────────────────────────────────────────────
-      // 12nts: no contract entry — use blended + experiences (best estimate)
-      let vp27 = vpContract[pkg]?.[month] ?? null;
-      if (vp27 === null && blendedSell !== null && pkg === '12nts') {
-        vp27 = blendedSell;  // best estimate for 12nts
-      }
-
-      // ── VP 2026 actual ────────────────────────────────────────────────────
-      // Available for 5nts, 7nts, 9nts from Prorata tab.
-      // Note: Prorata "2027 sell" is blended WITHOUT experiences; we store vp26 as-is.
-      let vp26  = null;
-      if (pkg !== '12nts') {
-        vp26 = prorata[pkg]?.[month]?.vp26 ?? null;
-      }
-
-      // ── Diff columns ──────────────────────────────────────────────────────
-      // These reference the VP 2027 and VP 2026 columns (cols C+1 and C+2 within the group).
-      // We'll use Sheets formulas for live calculation once we know column letters.
-      // For now, compute numerically and also emit Sheets formulas via batchUpdate later.
+      const { min, blended, vp27, vp26 } = d;
       let diffEuro = null;
       let diffPct  = null;
       if (vp27 !== null && vp26 !== null) {
         diffEuro = vp27 - vp26;
         diffPct  = ((vp27 - vp26) / vp26) * 100;
       }
-
       row.push(
-        minSell     !== null ? minSell     : '—',
-        blendedSell !== null ? blendedSell : '—',
-        vp27        !== null ? vp27        : '—',
-        vp26        !== null ? vp26        : (pkg === '12nts' ? 'n/a' : '—'),
-        diffEuro    !== null ? Math.round(diffEuro)         : '—',
-        diffPct     !== null ? `${diffPct.toFixed(1)}%`     : '—',
+        min     != null ? min     : '—',
+        blended != null ? blended : '—',
+        vp27    != null ? vp27    : '—',
+        vp26    != null ? vp26    : (pkg === '12nts' ? 'n/a' : '—'),
+        diffEuro != null ? Math.round(diffEuro) : '—',
+        diffPct  != null ? `${diffPct.toFixed(1)}%` : '—',
       );
     }
-
     dataRows.push(row);
   }
 
-  // Notes row
-  dataRows.push([]);
-  dataRows.push([
-    'Notes:',
-    'MIN = cheapest 4S★ hotel rate × nights + experiences × 1.06 × 1.23  |  ' +
-    'Blended = (MEDIA_AVG+MEDIA_MIN)/2 × nights + experiences × 1.06 × 1.23  |  ' +
-    'VP 2027 = contract price from VP Contract Paste (rounded €10); 12nts = Blended estimate  |  ' +
-    'VP 2026 = from Prorata tab (VP contract PDFs, 4★ tier)  |  ' +
-    'Source: Italian_Lakes_2027_4S spreadsheet',
-  ]);
+  const notesText = notes ||
+    'MIN = cheapest netto × 1.06 × 1.23  |  ' +
+    'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
+    'VP 2027 = contract price from source sheet  |  ' +
+    'VP 2026 = from Drive VP contract PDFs  |  ' +
+    'Diff = VP 2027 − VP 2026';
 
-  // ── Write values ─────────────────────────────────────────────────────────────
-  // Insert 3 blank rows at top first (title + date + blank), then data
-  const titleRows = [
-    [`VP 2027 — LAGHI 4S★ — Package Proposal`],
-    [`Generated: ${runDate}  |  Star tier: 4S★ only  |  Pricing: acc netto × 1.06 × 1.23`],
+  const titleText = tier ? `${title}  [${tier}]` : title;
+  const subtitleText = variantLabel
+    ? `Generated: ${runDate}  |  ${variantLabel}  |  Pricing: acc netto × 1.06 × 1.23`
+    : `Generated: ${runDate}  |  Pricing: acc netto × 1.06 × 1.23`;
+
+  const allRows = [
+    [titleText],
+    [subtitleText],
     [],
+    ...dataRows,
+    [],
+    [notesText],
   ];
-  const allRows = [...titleRows, ...dataRows];
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: ssId,
@@ -462,25 +531,24 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
   });
 
   // ── Formatting ───────────────────────────────────────────────────────────────
-  const PKG_COL_START = 1;  // col B (0-indexed)
-  const PKG_COL_WIDTH = 6;
-  const DATA_START_ROW = 5;  // 0-indexed row of month "Mar" (row 6 in sheet = index 5)
-  const DATA_END_ROW   = DATA_START_ROW + ACTIVE_MONTHS.length;  // exclusive
+  const PKG_COL_START  = 1;
+  const DATA_START_ROW = 5;   // 0-indexed row of first month (after 3 header rows + pkg row + sub-header)
+  const DATA_END_ROW   = DATA_START_ROW + usedMonths.length;
   const TOTAL_COLS     = 1 + PKG_KEYS.length * PKG_COL_WIDTH;
 
-  const COLOR_HEADER_DARK  = { red: 0.133, green: 0.267, blue: 0.533 };
-  const COLOR_HEADER_MID   = { red: 0.286, green: 0.427, blue: 0.690 };
-  const COLOR_PKG_ALT      = [
-    { red: 0.878, green: 0.906, blue: 0.961 },   // 5nts: light steel blue
-    { red: 0.863, green: 0.925, blue: 0.878 },   // 7nts: light green
-    { red: 0.996, green: 0.945, blue: 0.816 },   // 9nts: light amber
-    { red: 0.961, green: 0.878, blue: 0.878 },   // 12nts: light rose
+  const COLOR_HEADER_DARK = { red: 0.133, green: 0.267, blue: 0.533 };
+  const COLOR_HEADER_MID  = { red: 0.286, green: 0.427, blue: 0.690 };
+  const COLOR_PKG_ALT = [
+    { red: 0.878, green: 0.906, blue: 0.961 },
+    { red: 0.863, green: 0.925, blue: 0.878 },
+    { red: 0.996, green: 0.945, blue: 0.816 },
+    { red: 0.961, green: 0.878, blue: 0.878 },
+    { red: 0.918, green: 0.859, blue: 0.961 },
   ];
   const COLOR_WHITE = { red: 1, green: 1, blue: 1 };
 
   const fmtRequests = [];
 
-  // Title row (row 0 in sheet = index 0): bold, dark background, white text
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
@@ -492,7 +560,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Date/note row (index 1)
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: 1, endRowIndex: 2 },
@@ -504,20 +571,16 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Package group header row (row 4 in sheet = index 3): colored per package
   for (let p = 0; p < PKG_KEYS.length; p++) {
     const startCol = PKG_COL_START + p * PKG_COL_WIDTH;
+    const color    = COLOR_PKG_ALT[p % COLOR_PKG_ALT.length];
     fmtRequests.push({
       repeatCell: {
         range: { sheetId: 0, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
-        cell: { userEnteredFormat: {
-          backgroundColor: COLOR_PKG_ALT[p],
-          textFormat: { bold: true },
-        }},
+        cell: { userEnteredFormat: { backgroundColor: color, textFormat: { bold: true } } },
         fields: 'userEnteredFormat(backgroundColor,textFormat)',
       },
     });
-    // Merge the 6 cells for the package label
     fmtRequests.push({
       mergeCells: {
         range: { sheetId: 0, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
@@ -526,7 +589,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     });
   }
 
-  // Column sub-header row (row 5 in sheet = index 4): dark blue
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: 4, endRowIndex: 5 },
@@ -539,30 +601,20 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Data rows: alternating light package color per group, Month col bold
   for (let p = 0; p < PKG_KEYS.length; p++) {
     const startCol = PKG_COL_START + p * PKG_COL_WIDTH;
-    // Diff % column (col 5 within each group, 0-indexed) — center-align
-    fmtRequests.push({
-      repeatCell: {
-        range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
-                 startColumnIndex: startCol + 5, endColumnIndex: startCol + 6 },
-        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } },
-        fields: 'userEnteredFormat(horizontalAlignment)',
-      },
-    });
-    // Diff € column (col 4): center-align
-    fmtRequests.push({
-      repeatCell: {
-        range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
-                 startColumnIndex: startCol + 4, endColumnIndex: startCol + 5 },
-        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } },
-        fields: 'userEnteredFormat(horizontalAlignment)',
-      },
-    });
+    for (const offset of [4, 5]) {
+      fmtRequests.push({
+        repeatCell: {
+          range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
+                   startColumnIndex: startCol + offset, endColumnIndex: startCol + offset + 1 },
+          cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } },
+          fields: 'userEnteredFormat(horizontalAlignment)',
+        },
+      });
+    }
   }
 
-  // Month column (col A) in data rows: bold
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
@@ -572,7 +624,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Notes row: italic, gray
   const notesRowIdx = DATA_END_ROW + 1;
   fmtRequests.push({
     repeatCell: {
@@ -585,7 +636,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Auto-resize all columns
   fmtRequests.push({
     autoResizeDimensions: {
       dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: TOTAL_COLS },
@@ -597,97 +647,328 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     requestBody: { requests: fmtRequests },
   });
 
-  console.log(`  ✓ Proposal sheet created: ${createResp.data.webViewLink}`);
+  console.log(`  ✓ Proposal sheet: ${createResp.data.webViewLink}`);
   return createResp.data;
 }
 
-// ─── Main entry point ─────────────────────────────────────────────────────────
-/**
- * Run the VP package proposal builder for the given destination.
- *
- * @param {string}   destination        e.g. 'laghi'
- * @param {string[]} _driveSpreadsheetIds  (unused — data now read from 4S master)
- * @param {string}   proposalFolderId   Drive folder to write the proposal into
- * @param {string}   runDate            YYYY-MM-DD
- */
-async function buildPackageProposal(destination, _driveSpreadsheetIds, proposalFolderId, runDate) {
-  if (destination !== 'laghi') {
-    console.log(`  ℹ  Package proposal not yet implemented for '${destination}' — skipping.`);
-    return null;
-  }
+// ─── LAGHI builder ────────────────────────────────────────────────────────────
 
-  console.log('\n📦  Building VP 4S★ package proposal for Laghi…');
-  console.log(`    Source: Italian_Lakes_2027_4S (${SS_4S_ID})`);
+async function buildLaghiProposal(proposalFolderId, runDate) {
+  console.log('\n📦  Building Laghi VP package proposals…');
 
   const sheets = getSheetsClient();
+  const files  = [];
 
-  // ── 1. Read per-night lake rates from 9nts tab (covers all 3 lakes) ────────
-  console.log('  → Reading per-night lake rates from 9nts tab…');
-  const { rates: perNightRates9 } = await readLakeMediaRates(sheets, SS_4S_ID, '9 nts') || {};
-  if (!perNightRates9) throw new Error('Could not read 9nts tab from Italian_Lakes_2027_4S');
+  // We build two tiers: 4★S (always available) and 4★ (requires SS_4STAR_ID)
+  const tierConfigs = [
+    { tier: '4★S', tierKey: '4sstar', ssId: SS_4S_ID,     label: '4S★' },
+    ...(SS_4STAR_ID ? [{ tier: '4★',  tierKey: '4star',  ssId: SS_4STAR_ID, label: '4★'  }] : []),
+  ];
 
-  // For 5nts we also read the 5nts tab so Maggiore and Como rates use the right context
-  // (Garda has 0 nights in 5nts so it doesn't appear; use 9nts rates for Garda)
-  console.log('  → Reading per-night lake rates from 5nts and 7nts tabs…');
-  const { rates: perNightRates5 } = await readLakeMediaRates(sheets, SS_4S_ID, '5 nts') || {};
-  const { rates: perNightRates7 } = await readLakeMediaRates(sheets, SS_4S_ID, '7 nts') || {};
+  for (const { tier, tierKey, ssId, label } of tierConfigs) {
+    console.log(`\n  ── Tier: ${tier} (source: ${ssId}) ──`);
 
-  // Merge per-night rates: prefer the per-package tab, fall back to 9nts
-  // For each lake, use the most specific tab that has that lake
-  const perNightRates = {
-    maggiore: {},
-    como:     {},
-    garda:    {},
-  };
-  for (const month of ACTIVE_MONTHS) {
-    // Maggiore: use 5nts tab (cleanest for Maggiore — no Garda noise)
-    perNightRates.maggiore[month] = perNightRates5?.maggiore?.[month]
-                                 || perNightRates7?.maggiore?.[month]
-                                 || perNightRates9?.maggiore?.[month]
-                                 || null;
-    // Como: use 5nts tab
-    perNightRates.como[month]     = perNightRates5?.como?.[month]
-                                 || perNightRates7?.como?.[month]
-                                 || perNightRates9?.como?.[month]
-                                 || null;
-    // Garda: use 7nts tab (smallest Garda sample, but most focused)
-    perNightRates.garda[month]    = perNightRates7?.garda?.[month]
-                                 || perNightRates9?.garda?.[month]
-                                 || null;
+    // Read all three tab sets once per tier
+    console.log('  → Reading per-night lake rates (5nts, 7nts, 9nts tabs)…');
+    const [data5, data7, data9] = await Promise.all([
+      readLakeMediaRates(sheets, ssId, '5 nts'),
+      readLakeMediaRates(sheets, ssId, '7 nts'),
+      readLakeMediaRates(sheets, ssId, '9 nts'),
+    ]);
+
+    // Build merged per-night rates
+    const perNight = { maggiore: {}, como: {}, garda: {} };
+    for (const month of ACTIVE_MONTHS) {
+      perNight.maggiore[month] = data5?.rates?.maggiore?.[month] || data7?.rates?.maggiore?.[month] || data9?.rates?.maggiore?.[month] || null;
+      perNight.como[month]     = data5?.rates?.como?.[month]     || data7?.rates?.como?.[month]     || data9?.rates?.como?.[month]     || null;
+      perNight.garda[month]    = data7?.rates?.garda?.[month]    || data9?.rates?.garda?.[month]    || null;
+    }
+
+    console.log('  → Reading VP Contract Paste and Prorata tabs…');
+    const [vpContract, prorata] = await Promise.all([
+      readVpContractPrices(sheets, ssId),
+      readProrata(sheets, ssId),
+    ]);
+
+    const vp2026tier = VP2026.laghi[tierKey];
+
+    // Build one sheet per variant
+    for (const [variantKey, variantDef] of Object.entries(LAGHI_VARIANTS)) {
+      console.log(`  → Building variant: ${variantDef.label}`);
+
+      const pkgDefs   = {};
+      const monthData = {};
+
+      for (const [pkgKey, pkg] of Object.entries(variantDef.packages)) {
+        pkgDefs[pkgKey] = { label: pkg.label, expTotal: pkg.expTotal };
+
+        for (const month of ACTIVE_MONTHS) {
+          if (!monthData[pkgKey]) monthData[pkgKey] = {};
+
+          const { nights, expTotal } = pkg;
+          const lakes = ['maggiore', 'como', 'garda'];
+
+          let minAccNetto     = 0;
+          let blendedAccNetto = 0;
+          let hasRates        = true;
+
+          for (const lake of lakes) {
+            const n = nights[lake];
+            if (!n) continue;
+            const lakeData = perNight[lake]?.[month];
+            if (!lakeData?.min || !lakeData?.avg) { hasRates = false; break; }
+            minAccNetto     += lakeData.min * n;
+            blendedAccNetto += ((lakeData.avg + lakeData.min) / 2) * n;
+          }
+
+          const minSell     = hasRates ? sellPrice(minAccNetto, expTotal)     : null;
+          const blendedSell = hasRates ? sellPrice(blendedAccNetto, expTotal) : null;
+
+          // VP 2027: from VP Contract Paste for 5/7/9nts; blended estimate for 12nts
+          let vp27 = vpContract[pkgKey]?.[month] ?? null;
+          if (vp27 === null && blendedSell !== null && pkgKey === '12nts') {
+            vp27 = blendedSell;
+          }
+
+          // VP 2026: from hardcoded PDF actuals (Jun–Oct only for Lakes)
+          const vp26 = (vp2026tier && vp2026tier[pkgKey])
+            ? (vp2026tier[pkgKey][month] ?? null)
+            : (prorata[pkgKey]?.[month]?.vp26 ?? null);
+
+          monthData[pkgKey][month] = { min: minSell, blended: blendedSell, vp27, vp26 };
+        }
+      }
+
+      const sheetTitle = `VP 2027 — Laghi ${label} — ${variantDef.label} — ${runDate}`;
+      const file = await buildProposalSheet({
+        title:        sheetTitle,
+        pkgDefs,
+        monthData,
+        folderId:     proposalFolderId,
+        runDate,
+        tier:         tier,
+        variantLabel: variantDef.label,
+      });
+      files.push(file);
+    }
   }
 
-  // ── 2. Read VP 2027 contract prices ─────────────────────────────────────────
-  console.log('  → Reading VP Contract Paste tab…');
-  const vpContract = await readVpContractPrices(sheets, SS_4S_ID);
-  console.log(`    VP contract rows found: ${Object.keys(vpContract).join(', ') || 'none'}`);
-
-  // ── 3. Read 2026 VP actuals and 2027 blended from Prorata tab ───────────────
-  console.log('  → Reading Prorata tab…');
-  const prorata = await readProrata(sheets, SS_4S_ID);
-  console.log(`    Prorata sections found: ${Object.keys(prorata).join(', ') || 'none'}`);
-
-  // ── 4. Build the proposal sheet ─────────────────────────────────────────────
-  console.log('  → Building proposal sheet…');
-  const proposalFile = await buildProposalSheet(
-    { perNightRates, vpContract, prorata },
-    proposalFolderId,
-    runDate,
-  );
-
-  return proposalFile;
+  return files;
 }
 
-module.exports = { buildPackageProposal, EXPERIENCES, PACKAGES, TOTAL_MARKUP };
+// ─── SARDEGNA builder ─────────────────────────────────────────────────────────
 
-// ─── Standalone CLI: node package-proposal.js laghi ──────────────────────────
+/**
+ * Build Sardinia proposal from a scraped source spreadsheet (Drive XLS).
+ * @param {string} sourceSheetId   — ID of the scraped Sardinia Google Sheet in Drive
+ * @param {string} proposalFolderId
+ * @param {string} runDate
+ */
+async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate) {
+  console.log('\n📦  Building Sardegna VP package proposal…');
+
+  // For Sardinia, source sheet not yet available at the time of writing.
+  // We use hardcoded 2026 VP actuals and emit a note that 2027 rates need the source sheet.
+  // Once the source sheet is available, this can be enhanced to read netto rates.
+
+  const pkgDefs   = {};
+  const monthData = {};
+
+  // Sardinia active months (from contract): Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov
+  const sardMonths = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+
+  for (const [pkgKey, pkg] of Object.entries(SARDEGNA_PACKAGES)) {
+    pkgDefs[pkgKey] = { label: pkg.label, expTotal: pkg.expTotal };
+    monthData[pkgKey] = {};
+
+    for (const month of sardMonths) {
+      // 2026 VP actual
+      const vp26 = VP2026.sardegna[pkgKey]?.[month] ?? null;
+
+      // 2027 VP: not yet available without source sheet
+      // Placeholder — will be populated when scrape completes
+      const vp27    = null;
+      const minSell = null;
+      const blended = null;
+
+      monthData[pkgKey][month] = { min: minSell, blended, vp27, vp26 };
+    }
+  }
+
+  const sheetTitle = `VP 2027 — Sardegna — Package Proposal — ${runDate}`;
+  return buildProposalSheet({
+    title:        sheetTitle,
+    pkgDefs,
+    monthData,
+    folderId:     proposalFolderId,
+    runDate,
+    tier:         '',
+    variantLabel: 'Standard (4★)',
+    notes:        'MIN/Blended/VP 2027: awaiting scraped source sheet  |  ' +
+                  'VP 2026 from Drive VP contract PDFs (Aug 2026 version)  |  ' +
+                  'Experience costs: 7nts €80pp (boat+wine), 10/12nts €170pp (+cooking class)',
+  });
+}
+
+// ─── TOSCANA builder ──────────────────────────────────────────────────────────
+
+async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate) {
+  console.log('\n📦  Building Toscana VP package proposal…');
+
+  // Tuscany months (from contract): Oct, Nov, Dec, Jan, Feb, Mar, Apr, May, Jun
+  const toscanaMonths = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+
+  const pkgDefs   = {};
+  const monthData = {};
+
+  for (const [pkgKey, pkg] of Object.entries(TOSCANA_PACKAGES)) {
+    pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
+    monthData[pkgKey] = {};
+
+    for (const month of toscanaMonths) {
+      const vp26 = VP2026.toscana[pkgKey]?.[month] ?? null;
+
+      monthData[pkgKey][month] = {
+        min:     null,   // awaiting source sheet
+        blended: null,
+        vp27:    null,
+        vp26,
+      };
+    }
+  }
+
+  const sheetTitle = `VP 2027 — Toscana — Package Proposal — ${runDate}`;
+  return buildProposalSheet({
+    title:        sheetTitle,
+    pkgDefs,
+    monthData,
+    folderId:     proposalFolderId,
+    runDate,
+    tier:         '',
+    variantLabel: 'Standard (4★)',
+    notes:        'MIN/Blended/VP 2027: awaiting scraped source sheet  |  ' +
+                  'VP 2026 from Drive VP contract PDFs (Sept 2026 v2)  |  ' +
+                  'Experience costs: 5nts €35pp (wine tasting), 7nts €45pp (wine tasting)',
+  });
+}
+
+// ─── LIGURIA builder ──────────────────────────────────────────────────────────
+
+async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate) {
+  console.log('\n📦  Building Liguria VP package proposal…');
+
+  // Liguria months (from contract): Jun, Jul, Aug, Sep, Oct
+  const liguriaMonths = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+
+  const pkgDefs   = {};
+  const monthData = {};
+
+  for (const [pkgKey, pkg] of Object.entries(LIGURIA_PACKAGES)) {
+    pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
+    monthData[pkgKey] = {};
+
+    for (const month of liguriaMonths) {
+      const vp26 = VP2026.liguria[pkgKey]?.[month] ?? null;
+
+      monthData[pkgKey][month] = {
+        min:     null,
+        blended: null,
+        vp27:    null,
+        vp26,
+      };
+    }
+  }
+
+  const sheetTitle = `VP 2027 — Liguria — Package Proposal — ${runDate}`;
+  return buildProposalSheet({
+    title:        sheetTitle,
+    pkgDefs,
+    monthData,
+    folderId:     proposalFolderId,
+    runDate,
+    tier:         '',
+    variantLabel: 'Standard (4★)',
+    notes:        'MIN/Blended/VP 2027: awaiting scraped source sheet  |  ' +
+                  'VP 2026 from Drive VP contract PDFs (June 2026 version)  |  ' +
+                  'Experience costs: 5nts €45pp (CT boat + pesto), 7nts €60pp (CT boat + pesto)',
+  });
+}
+
+// ─── Main entry point ─────────────────────────────────────────────────────────
+
+/**
+ * Build VP package proposals for the given destination.
+ *
+ * @param {string}   destination           — 'laghi' | 'toscana' | 'sardegna' | 'liguria'
+ * @param {string[]} driveSpreadsheetIds   — scraped source sheet IDs (from scraper.js)
+ * @param {string}   proposalFolderId      — Drive folder for output sheets
+ * @param {string}   runDate               — YYYY-MM-DD
+ */
+async function buildPackageProposal(destination, driveSpreadsheetIds, proposalFolderId, runDate) {
+  const sourceSheetId = Array.isArray(driveSpreadsheetIds) ? driveSpreadsheetIds[0] : null;
+
+  switch (destination) {
+    case 'laghi':
+      return buildLaghiProposal(proposalFolderId, runDate);
+
+    case 'sardegna':
+      return buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate);
+
+    case 'toscana':
+      return buildToscanaProposal(sourceSheetId, proposalFolderId, runDate);
+
+    case 'liguria':
+      return buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate);
+
+    default:
+      console.log(`  ℹ  Package proposal not implemented for '${destination}' — skipping.`);
+      return null;
+  }
+}
+
+module.exports = {
+  buildPackageProposal,
+  VP2026,
+  LAGHI_VARIANTS,
+  SARDEGNA_PACKAGES,
+  TOSCANA_PACKAGES,
+  LIGURIA_PACKAGES,
+  TOTAL_MARKUP,
+};
+
+// ─── Standalone CLI ───────────────────────────────────────────────────────────
+// Usage: node package-proposal.js <destination>
+// e.g.:  node package-proposal.js laghi
+//        node package-proposal.js sardegna
+//        node package-proposal.js toscana
+//        node package-proposal.js liguria
 if (require.main === module) {
-  const dest = process.argv[2] || 'laghi';
-  const VP_2027_FOLDER_ID = process.env.VP_2027_FOLDER_LAGHI || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1';
+  const dest    = process.argv[2] || 'laghi';
   const runDate = new Date().toISOString().slice(0, 10);
 
-  buildPackageProposal(dest, [], VP_2027_FOLDER_ID, runDate)
-    .then(file => {
-      if (file) console.log(`\n✅  Proposal created: ${file.webViewLink}`);
+  // Folder IDs per destination (env vars or fallbacks)
+  const FOLDER_IDS = {
+    laghi:    process.env.VP_2027_FOLDER_LAGHI    || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1',
+    toscana:  process.env.VP_2027_FOLDER_TOSCANA  || '',
+    sardegna: process.env.VP_2027_FOLDER_SARDEGNA || '',
+    liguria:  process.env.VP_2027_FOLDER_LIGURIA  || '',
+  };
+
+  const folderId = FOLDER_IDS[dest];
+  if (!folderId) {
+    console.error(`\n❌  No folder ID configured for '${dest}'. Set VP_2027_FOLDER_${dest.toUpperCase()} env var.`);
+    process.exit(1);
+  }
+
+  buildPackageProposal(dest, [], folderId, runDate)
+    .then(files => {
+      const fileList = Array.isArray(files) ? files : [files].filter(Boolean);
+      if (fileList.length) {
+        console.log(`\n✅  ${fileList.length} proposal(s) created:`);
+        fileList.forEach(f => f && console.log(`    ${f.webViewLink}`));
+      } else {
+        console.log('\nℹ  No proposals created.');
+      }
     })
     .catch(err => {
       console.error('\n❌  Error:', err.message);
