@@ -248,87 +248,40 @@ async function buildProposalSheet(ratesByLake, folderId, runDate) {
   });
   const ssId = createResp.data.id;
 
-  // ── For each package + month: find cheapest hotel at each lake, combine into one VP price ──
+  // ── Simple grid: one row per package, one column per month, one VP sell price per cell ──
   //
-  // Columns:
-  //   Package | Month | Cheapest Maggiore hotel | Maggiore netto | Cheapest Como hotel | Como netto |
-  //   Cheapest Garda hotel | Garda netto | Total Acc Netto/pp | Experiences/pp | Total Netto/pp | VP Sell Price/pp
+  //              | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct |
+  //   5 nights   | 740 | 760 | ... |
+  //   7 nights   | 860 | ...
+  //   9 nights   | 960 | ...
+  //   12 nights  | ... |
 
-  const headerRow = [
-    'Package', 'Month',
-    'Best Maggiore hotel', 'Maggiore acc netto/pp',
-    'Best Como hotel',     'Como acc netto/pp',
-    'Best Garda hotel',    'Garda acc netto/pp',
-    'Total acc netto/pp',  'Experiences/pp',
-    'Total netto/pp',      'VP sell price/pp',
-  ];
-  const dataRows = [headerRow];
+  const headerRow = ['Package', ...ACTIVE_MONTHS];
+  const dataRows  = [headerRow];
 
   for (const [pkgKey, pkg] of Object.entries(PACKAGES)) {
     const { nights, label, experiences } = pkg;
     const expTotal = experiences.reduce((s, e) => s + (e || 0), 0);
+    const requiredLakes = Object.entries(nights).filter(([, n]) => n > 0).map(([l]) => l);
 
-    for (const month of ACTIVE_MONTHS) {
-      // For each lake in this package, find the cheapest hotel for this month
-      const lakeResults = {};   // lake → { hotel, ratePerNight, accNetto }
-
-      for (const [lake, lakeNights] of Object.entries(nights)) {
-        if (lakeNights === 0) {
-          lakeResults[lake] = null;
-          continue;
-        }
+    const monthPrices = ACTIVE_MONTHS.map(month => {
+      // Find cheapest hotel at each lake for this month
+      let totalAccNetto = 0;
+      for (const lake of requiredLakes) {
         const lakeRates = ratesByLake[lake] || {};
-        let bestHotel = null;
         let bestRatePP = Infinity;
-
-        for (const [hotel, monthRates] of Object.entries(lakeRates)) {
-          const ratePerNightPP = monthRates[month];
-          if (!ratePerNightPP) continue;
-          if (ratePerNightPP < bestRatePP) {
-            bestRatePP = ratePerNightPP;
-            bestHotel = hotel;
-          }
+        for (const monthRates of Object.values(lakeRates)) {
+          const r = monthRates[month];
+          if (r && r < bestRatePP) bestRatePP = r;
         }
-
-        if (bestHotel) {
-          lakeResults[lake] = {
-            hotel: bestHotel,
-            ratePerNightPP: bestRatePP,
-            accNetto: bestRatePP * lakeNights,
-          };
-        } else {
-          lakeResults[lake] = null;  // no data for this lake/month
-        }
+        if (!isFinite(bestRatePP)) return '';   // no data for this lake/month
+        totalAccNetto += bestRatePP * nights[lake];
       }
+      const vpPrice = Math.round((totalAccNetto + expTotal) * TOTAL_MARKUP);
+      return `€${vpPrice}`;
+    });
 
-      // Skip month if any required lake has no data
-      const requiredLakes = Object.entries(nights).filter(([, n]) => n > 0).map(([l]) => l);
-      if (requiredLakes.some(l => !lakeResults[l])) continue;
-
-      // Sum accommodation netto across all lakes
-      const totalAccNetto = requiredLakes.reduce((sum, l) => sum + lakeResults[l].accNetto, 0);
-      const totalNetto    = totalAccNetto + expTotal;
-      const vpPrice       = Math.round(totalNetto * TOTAL_MARKUP);
-
-      const mag  = lakeResults['maggiore'];
-      const como = lakeResults['como'];
-      const grd  = lakeResults['garda'];
-
-      dataRows.push([
-        label,
-        month,
-        mag  ? mag.hotel          : '',
-        mag  ? mag.accNetto.toFixed(2)  : '',
-        como ? como.hotel         : '',
-        como ? como.accNetto.toFixed(2) : '',
-        grd  ? grd.hotel          : '',
-        grd  ? grd.accNetto.toFixed(2)  : '',
-        totalAccNetto.toFixed(2),
-        expTotal.toFixed(2),
-        totalNetto.toFixed(2),
-        vpPrice,
-      ]);
-    }
+    dataRows.push([label, ...monthPrices]);
   }
 
   // Write to sheet
@@ -339,7 +292,7 @@ async function buildProposalSheet(ratesByLake, folderId, runDate) {
     requestBody: { values: dataRows },
   });
 
-  // Format: bold blue header + auto-resize columns
+  // Format: bold blue header row + bold first column + auto-resize
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: ssId,
     requestBody: {
@@ -357,8 +310,15 @@ async function buildProposalSheet(ratesByLake, folderId, runDate) {
           },
         },
         {
+          repeatCell: {
+            range: { sheetId: 0, startRowIndex: 1, endRowIndex: dataRows.length, startColumnIndex: 0, endColumnIndex: 1 },
+            cell: { userEnteredFormat: { textFormat: { bold: true } } },
+            fields: 'userEnteredFormat(textFormat)',
+          },
+        },
+        {
           autoResizeDimensions: {
-            dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: 12 },
+            dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: headerRow.length },
           },
         },
       ],
