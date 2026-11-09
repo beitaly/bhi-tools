@@ -14,7 +14,7 @@
  *   1.23 = Italian VAT (23%)
  *
  * ─── DATA SOURCE ────────────────────────────────────────────────────────────
- * Primary: Italian_Lakes_2027_4S spreadsheet (ID: 1PWNq3r4V8fDZW9Cnn3tgh4qsfXX5bdPQdlcpxC5r_H0)
+ * Primary: Italian_Lakes_2027_4S spreadsheet (ID: 196Egjjzswzz7ul2qgHcBlxNM0xsZQXK-IDibY7VkV-8)
  *   - "5 nts", "7 nts", "9 nts" tabs: per-hotel MEDIA AVG/MIN rates per lake
  *   - "VP Contract Paste" tab: final 2027 VP contract prices (rounded €10)
  *   - "Prorata" tab: 2027 blended sell + 2026 VP actual per month
@@ -38,7 +38,7 @@
 const { google } = require('googleapis');
 
 // ─── Spreadsheet IDs ─────────────────────────────────────────────────────────
-const SS_4S_ID = '1PWNq3r4V8fDZW9Cnn3tgh4qsfXX5bdPQdlcpxC5r_H0'; // Italian_Lakes_2027_4S
+const SS_4S_ID = '196Egjjzswzz7ul2qgHcBlxNM0xsZQXK-IDibY7VkV-8'; // Italian_Lakes_2027_4S (copy in shared drive)
 
 // ─── Experience costs (netto per person) ─────────────────────────────────────
 const EXPERIENCES = {
@@ -403,16 +403,12 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
 
       // ── VP 2026 actual ────────────────────────────────────────────────────
       // Available for 5nts, 7nts, 9nts from Prorata tab.
-      // Note: Prorata "2027 sell" is blended WITHOUT experiences; we store vp26 as-is.
       let vp26  = null;
       if (pkg !== '12nts') {
         vp26 = prorata[pkg]?.[month]?.vp26 ?? null;
       }
 
       // ── Diff columns ──────────────────────────────────────────────────────
-      // These reference the VP 2027 and VP 2026 columns (cols C+1 and C+2 within the group).
-      // We'll use Sheets formulas for live calculation once we know column letters.
-      // For now, compute numerically and also emit Sheets formulas via batchUpdate later.
       let diffEuro = null;
       let diffPct  = null;
       if (vp27 !== null && vp26 !== null) {
@@ -445,7 +441,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
   ]);
 
   // ── Write values ─────────────────────────────────────────────────────────────
-  // Insert 3 blank rows at top first (title + date + blank), then data
   const titleRows = [
     [`VP 2027 — LAGHI 4S★ — Package Proposal`],
     [`Generated: ${runDate}  |  Star tier: 4S★ only  |  Pricing: acc netto × 1.06 × 1.23`],
@@ -461,25 +456,24 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
   });
 
   // ── Formatting ───────────────────────────────────────────────────────────────
-  const PKG_COL_START = 1;  // col B (0-indexed)
+  const PKG_COL_START = 1;
   const PKG_COL_WIDTH = 6;
-  const DATA_START_ROW = 5;  // 0-indexed row of month "Mar" (row 6 in sheet = index 5)
-  const DATA_END_ROW   = DATA_START_ROW + ACTIVE_MONTHS.length;  // exclusive
+  const DATA_START_ROW = 5;
+  const DATA_END_ROW   = DATA_START_ROW + ACTIVE_MONTHS.length;
   const TOTAL_COLS     = 1 + PKG_KEYS.length * PKG_COL_WIDTH;
 
   const COLOR_HEADER_DARK  = { red: 0.133, green: 0.267, blue: 0.533 };
   const COLOR_HEADER_MID   = { red: 0.286, green: 0.427, blue: 0.690 };
   const COLOR_PKG_ALT      = [
-    { red: 0.878, green: 0.906, blue: 0.961 },   // 5nts: light steel blue
-    { red: 0.863, green: 0.925, blue: 0.878 },   // 7nts: light green
-    { red: 0.996, green: 0.945, blue: 0.816 },   // 9nts: light amber
-    { red: 0.961, green: 0.878, blue: 0.878 },   // 12nts: light rose
+    { red: 0.878, green: 0.906, blue: 0.961 },
+    { red: 0.863, green: 0.925, blue: 0.878 },
+    { red: 0.996, green: 0.945, blue: 0.816 },
+    { red: 0.961, green: 0.878, blue: 0.878 },
   ];
   const COLOR_WHITE = { red: 1, green: 1, blue: 1 };
 
   const fmtRequests = [];
 
-  // Title row (row 0 in sheet = index 0): bold, dark background, white text
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
@@ -491,7 +485,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Date/note row (index 1)
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: 1, endRowIndex: 2 },
@@ -503,7 +496,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Package group header row (row 4 in sheet = index 3): colored per package
   for (let p = 0; p < PKG_KEYS.length; p++) {
     const startCol = PKG_COL_START + p * PKG_COL_WIDTH;
     fmtRequests.push({
@@ -516,7 +508,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
         fields: 'userEnteredFormat(backgroundColor,textFormat)',
       },
     });
-    // Merge the 6 cells for the package label
     fmtRequests.push({
       mergeCells: {
         range: { sheetId: 0, startRowIndex: 3, endRowIndex: 4, startColumnIndex: startCol, endColumnIndex: startCol + PKG_COL_WIDTH },
@@ -525,7 +516,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     });
   }
 
-  // Column sub-header row (row 5 in sheet = index 4): dark blue
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: 4, endRowIndex: 5 },
@@ -538,10 +528,8 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Data rows: alternating light package color per group, Month col bold
   for (let p = 0; p < PKG_KEYS.length; p++) {
     const startCol = PKG_COL_START + p * PKG_COL_WIDTH;
-    // Diff % column (col 5 within each group, 0-indexed) — center-align
     fmtRequests.push({
       repeatCell: {
         range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
@@ -550,7 +538,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
         fields: 'userEnteredFormat(horizontalAlignment)',
       },
     });
-    // Diff € column (col 4): center-align
     fmtRequests.push({
       repeatCell: {
         range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
@@ -561,7 +548,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     });
   }
 
-  // Month column (col A) in data rows: bold
   fmtRequests.push({
     repeatCell: {
       range: { sheetId: 0, startRowIndex: DATA_START_ROW, endRowIndex: DATA_END_ROW,
@@ -571,7 +557,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Notes row: italic, gray
   const notesRowIdx = DATA_END_ROW + 1;
   fmtRequests.push({
     repeatCell: {
@@ -584,7 +569,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
     },
   });
 
-  // Auto-resize all columns
   fmtRequests.push({
     autoResizeDimensions: {
       dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: TOTAL_COLS },
@@ -601,14 +585,6 @@ async function buildProposalSheet(ratesConfig, folderId, runDate) {
 }
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
-/**
- * Run the VP package proposal builder for the given destination.
- *
- * @param {string}   destination        e.g. 'laghi'
- * @param {string[]} _driveSpreadsheetIds  (unused — data now read from 4S master)
- * @param {string}   proposalFolderId   Drive folder to write the proposal into
- * @param {string}   runDate            YYYY-MM-DD
- */
 async function buildPackageProposal(destination, _driveSpreadsheetIds, proposalFolderId, runDate) {
   if (destination !== 'laghi') {
     console.log(`  ℹ  Package proposal not yet implemented for '${destination}' — skipping.`);
@@ -620,52 +596,37 @@ async function buildPackageProposal(destination, _driveSpreadsheetIds, proposalF
 
   const sheets = getSheetsClient();
 
-  // ── 1. Read per-night lake rates from 9nts tab (covers all 3 lakes) ────────
   console.log('  → Reading per-night lake rates from 9nts tab…');
   const { rates: perNightRates9 } = await readLakeMediaRates(sheets, SS_4S_ID, '9 nts') || {};
   if (!perNightRates9) throw new Error('Could not read 9nts tab from Italian_Lakes_2027_4S');
 
-  // For 5nts we also read the 5nts tab so Maggiore and Como rates use the right context
-  // (Garda has 0 nights in 5nts so it doesn't appear; use 9nts rates for Garda)
   console.log('  → Reading per-night lake rates from 5nts and 7nts tabs…');
   const { rates: perNightRates5 } = await readLakeMediaRates(sheets, SS_4S_ID, '5 nts') || {};
   const { rates: perNightRates7 } = await readLakeMediaRates(sheets, SS_4S_ID, '7 nts') || {};
 
-  // Merge per-night rates: prefer the per-package tab, fall back to 9nts
-  // For each lake, use the most specific tab that has that lake
-  const perNightRates = {
-    maggiore: {},
-    como:     {},
-    garda:    {},
-  };
+  const perNightRates = { maggiore: {}, como: {}, garda: {} };
   for (const month of ACTIVE_MONTHS) {
-    // Maggiore: use 5nts tab (cleanest for Maggiore — no Garda noise)
     perNightRates.maggiore[month] = perNightRates5?.maggiore?.[month]
                                  || perNightRates7?.maggiore?.[month]
                                  || perNightRates9?.maggiore?.[month]
                                  || null;
-    // Como: use 5nts tab
     perNightRates.como[month]     = perNightRates5?.como?.[month]
                                  || perNightRates7?.como?.[month]
                                  || perNightRates9?.como?.[month]
                                  || null;
-    // Garda: use 7nts tab (smallest Garda sample, but most focused)
     perNightRates.garda[month]    = perNightRates7?.garda?.[month]
                                  || perNightRates9?.garda?.[month]
                                  || null;
   }
 
-  // ── 2. Read VP 2027 contract prices ─────────────────────────────────────────
   console.log('  → Reading VP Contract Paste tab…');
   const vpContract = await readVpContractPrices(sheets, SS_4S_ID);
   console.log(`    VP contract rows found: ${Object.keys(vpContract).join(', ') || 'none'}`);
 
-  // ── 3. Read 2026 VP actuals and 2027 blended from Prorata tab ───────────────
   console.log('  → Reading Prorata tab…');
   const prorata = await readProrata(sheets, SS_4S_ID);
   console.log(`    Prorata sections found: ${Object.keys(prorata).join(', ') || 'none'}`);
 
-  // ── 4. Build the proposal sheet ─────────────────────────────────────────────
   console.log('  → Building proposal sheet…');
   const proposalFile = await buildProposalSheet(
     { perNightRates, vpContract, prorata },
