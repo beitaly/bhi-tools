@@ -2762,7 +2762,7 @@ async function runBatch(page, batch, downloadDir) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-async function runScraper(targetDestination = null) {
+async function runScraper(targetDestination = null, startFrom = 0, endAt = null) {
   fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
   const browser = await chromium.launch({
@@ -2781,11 +2781,15 @@ async function runScraper(targetDestination = null) {
   try {
     await login(page);
 
-    const batches = targetDestination
+    let batches = targetDestination
       ? SEARCH_BATCHES.filter(b => b.destination === targetDestination)
       : SEARCH_BATCHES;
 
-    console.log(`\n📋  Running ${batches.length} search batch(es)…`);
+    // Apply from/to slice for splitting long runs
+    const totalBatches = batches.length;
+    batches = batches.slice(startFrom, endAt !== null ? endAt : undefined);
+
+    console.log(`\n📋  Running ${batches.length} of ${totalBatches} batch(es) (from=${startFrom}, to=${endAt ?? totalBatches})…`);
 
     for (const batch of batches) {
       try {
@@ -3009,25 +3013,6 @@ app.get('/files/:filename', (req, res) => {
   res.download(filePath);
 });
 
-// GET /debug-sheet/:ssId/:sheetName  → returns raw cell values from a Sheets tab (for structure inspection)
-app.get('/debug-sheet/:ssId/:sheetName', async (req, res) => {
-  try {
-    const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
-    const auth = new google.auth.GoogleAuth({
-      credentials: creds,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-    const sheets = google.sheets({ version: 'v4', auth });
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: req.params.ssId,
-      range: `'${req.params.sheetName}'!A1:N50`,
-    });
-    res.json({ values: result.data.values || [] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // GET /proposal/laghi  → build VP package proposal from existing Drive rate sheets (no scrape)
 app.get('/proposal/:destination?', async (req, res) => {
   const dest = req.params.destination || 'laghi';
@@ -3054,17 +3039,22 @@ app.get('/proposal/:destination?', async (req, res) => {
 
 app.get('/run/:destination?', async (req, res) => {
   const dest = req.params.destination || null;
-  console.log(`\n🚀  Scrape triggered — destination: ${dest || 'ALL'}`);
-  res.json({ status: 'started', destination: dest || 'all', ts: new Date().toISOString() });
+  const startFrom = parseInt(req.query.from || '0', 10) || 0;
+  const endAt     = req.query.to !== undefined ? (parseInt(req.query.to, 10) || null) : null;
+  const skipProposal = req.query.proposal === 'false';
+
+  console.log(`\n🚀  Scrape triggered — destination: ${dest || 'ALL'}, from=${startFrom}, to=${endAt ?? 'end'}, proposal=${!skipProposal}`);
+  res.json({ status: 'started', destination: dest || 'all', from: startFrom, to: endAt, ts: new Date().toISOString() });
 
   // Run in background so the HTTP response returns immediately
-  runScraper(dest)
+  runScraper(dest, startFrom, endAt)
     .then(async ({ results, errors }) => {
       console.log(`\n✅  Scrape complete. ${results.length} succeeded, ${errors.length} failed.`);
       if (errors.length) console.error('Errors:', errors);
 
       // After a successful Laghi scrape, build the VP 2027 package proposal sheet
-      if (!dest || dest === 'laghi') {
+      // Skip if ?proposal=false (i.e. this is not the final chunk)
+      if (!skipProposal && (!dest || dest === 'laghi')) {
         console.log('\n📊  Building VP 2027 package proposal…');
         const LAGHI_SEARCH_SS_IDS = [
           '1QT9lNez2q8gDBN_XbLw4X666lGhvE_W0z0a1DKoaF0s',  // search_236 Como
