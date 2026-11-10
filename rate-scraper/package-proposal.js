@@ -126,6 +126,19 @@ async function parseXlsTab(xlsBuffer, tabIndex) {
   const ws = wb.worksheets[tabIndex - 1];
   if (!ws) return null;
 
+  // Helper: unwrap exceljs cell values — formulas return { formula, result }
+  function cellNum(cell) {
+    const v = cell.value;
+    const raw = (v && typeof v === 'object' && 'result' in v) ? v.result : v;
+    const n = parseFloat(raw);
+    return (!isNaN(n) && n > 0) ? n : null;
+  }
+  function cellStr(cell) {
+    const v = cell.value;
+    const raw = (v && typeof v === 'object' && 'result' in v) ? v.result : v;
+    return String(raw || '').trim().toUpperCase();
+  }
+
   // ── month header row (row 1) ─────────────────────────────────────────────────
   const headerRow = ws.getRow(1);
   const colToMonth = {};  // 1-based col index → 'Jan' … 'Dec'
@@ -134,42 +147,62 @@ async function parseXlsTab(xlsBuffer, tabIndex) {
     if (abbr) colToMonth[colNum] = abbr;
   });
 
-  // ── collect MEDIA rows ───────────────────────────────────────────────────────
+  // ── collect MEDIA rows + compute MIN from hotel AVG rows ────────────────────
+  // Each DEST section structure:
+  //   "DEST N" header
+  //   hotel name row (col A = hotel name)
+  //     "AVG" row  — per-night avg for that hotel (cached formula results)
+  //     "MIN" row  — per-night min for that hotel (formula only, no cached result)
+  //   … more hotels …
+  //   "MEDIA" row — section avg across all hotels (cached result) ← we read this
+  //   null row    — section MIN formula (not cached) ← we skip; compute from hotel AVGs instead
+  //
+  // Strategy: scan each DEST section, collect all hotel AVG row values, then read MEDIA for avg.
+  // MIN across the section = min of all hotel AVG rows within the section.
   const mediaSets = [];
   const rowCount  = ws.rowCount;
 
+  let sectionHotelAvgs = [];  // hotel AVG rows accumulated since last DEST header
+
   for (let r = 2; r <= rowCount; r++) {
     const row  = ws.getRow(r);
-    const colA = String(row.getCell(1).value || '').trim().toUpperCase();
-    if (colA !== 'MEDIA') continue;
+    const aStr = cellStr(row.getCell(1));
 
-    const avgByMonth = {};
-    for (const [colNum, month] of Object.entries(colToMonth)) {
-      const v = parseFloat(row.getCell(Number(colNum)).value);
-      if (!isNaN(v) && v > 0) avgByMonth[month] = v;
+    if (aStr.startsWith('DEST')) {
+      // New section — reset hotel collector
+      sectionHotelAvgs = [];
+      continue;
     }
 
-    // next non-empty row = MIN values
-    const minByMonth = {};
-    for (let k = r + 1; k <= Math.min(r + 3, rowCount); k++) {
-      const nextRow = ws.getRow(k);
-      const nextA   = String(nextRow.getCell(1).value || '').trim().toUpperCase();
-      if (nextA === 'MEDIA' || nextA.startsWith('DEST')) break;
-      // check if row has any numeric data
-      let hasData = false;
-      for (const colNum of Object.keys(colToMonth)) {
-        const v = parseFloat(nextRow.getCell(Number(colNum)).value);
-        if (!isNaN(v) && v > 0) { hasData = true; break; }
-      }
-      if (!hasData) continue;
+    if (aStr === 'AVG') {
+      // Individual hotel avg row — collect values per month
+      const hotelAvg = {};
       for (const [colNum, month] of Object.entries(colToMonth)) {
-        const v = parseFloat(nextRow.getCell(Number(colNum)).value);
-        if (!isNaN(v) && v > 0) minByMonth[month] = v;
+        const n = cellNum(row.getCell(Number(colNum)));
+        if (n !== null) hotelAvg[month] = n;
       }
-      break;
+      if (Object.keys(hotelAvg).length > 0) sectionHotelAvgs.push(hotelAvg);
+      continue;
     }
 
-    mediaSets.push({ avg: avgByMonth, min: minByMonth });
+    if (aStr === 'MEDIA') {
+      // Section summary row — read avg from here (cached), compute min from hotel AVGs
+      const avgByMonth = {};
+      for (const [colNum, month] of Object.entries(colToMonth)) {
+        const n = cellNum(row.getCell(Number(colNum)));
+        if (n !== null) avgByMonth[month] = n;
+      }
+
+      const minByMonth = {};
+      for (const month of Object.values(MONTH_MAP)) {
+        const vals = sectionHotelAvgs.map(h => h[month]).filter(v => v != null);
+        if (vals.length > 0) minByMonth[month] = Math.min(...vals);
+      }
+
+      mediaSets.push({ avg: avgByMonth, min: minByMonth });
+      sectionHotelAvgs = [];  // reset for next section
+      continue;
+    }
   }
 
   if (mediaSets.length === 0) return null;
@@ -1297,7 +1330,7 @@ module.exports = {
   TOSCANA_PACKAGES,
   LIGURIA_PACKAGES,
   PUGLIA_PACKAGES,
-  TOTAL_MARKUP,
+  TOTAL_MULTIPLIER,
 };
 
 // ─── Standalone CLI ───────────────────────────────────────────────────────────
