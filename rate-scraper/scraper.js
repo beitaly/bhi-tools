@@ -2941,6 +2941,7 @@ async function runBatch(page, batch, downloadDir) {
   // The underlying element is <select id="hotels-select">.
   await page.waitForSelector('#hotels-select', { timeout: 15000 });
 
+  let selectedCount = 0;
   for (const hotelName of batch.hotels) {
     console.log(`    → Selecting: ${hotelName}`);
 
@@ -2975,6 +2976,7 @@ async function runBatch(page, batch, downloadDir) {
       if (targetParts.every(part => textLower.includes(part))) {
         await opt.click();
         matched = true;
+        selectedCount++;
         console.log(`    ✓ Matched: "${text}"`);
         break;
       }
@@ -2987,6 +2989,7 @@ async function runBatch(page, batch, downloadDir) {
         if (textLower.includes(targetParts[0])) {
           await opt.click();
           matched = true;
+          selectedCount++;
           console.log(`    ⚠ Partial match: "${text}"`);
           break;
         }
@@ -2997,6 +3000,12 @@ async function runBatch(page, batch, downloadDir) {
       await page.keyboard.press('Escape');
     }
     await page.waitForTimeout(400);
+  }
+
+  // If no hotels were matched at all, skip the search submission — no XLS will be generated
+  if (selectedCount === 0) {
+    console.warn(`    ⚠ No hotels selected for batch "${batch.label}" — skipping search submission`);
+    return null;
   }
 
   // ── Step 3: submit and wait for a *new* XLS on status.php
@@ -3081,7 +3090,15 @@ async function runScraper(targetDestination = null, startFrom = 0, endAt = null)
 
     for (const batch of batches) {
       try {
-        const { filePath, fileName } = await runBatch(page, batch, DOWNLOAD_DIR);
+        const batchResult = await runBatch(page, batch, DOWNLOAD_DIR);
+
+        // If all hotels were skipped, runBatch returns null — nothing to upload
+        if (!batchResult) {
+          console.log(`  ⏭  Batch "${batch.label}" skipped — no hotels matched`);
+          continue;
+        }
+
+        const { filePath, fileName } = batchResult;
 
         // Upload to Drive
         const folderId = DRIVE_FOLDERS[batch.destination];
