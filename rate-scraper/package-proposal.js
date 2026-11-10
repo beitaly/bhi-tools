@@ -97,6 +97,149 @@ function parseEuroStr(str) {
 // ─── Months ───────────────────────────────────────────────────────────────────
 const ACTIVE_MONTHS = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
 
+// ─── XLS month header → 3-letter abbreviation ────────────────────────────────
+const MONTH_MAP = {
+  Jan: 'Jan', Feb: 'Feb', Mar: 'Mar', Apr: 'Apr', May: 'May', Jun: 'Jun',
+  Jul: 'Jul', Aug: 'Aug', Sep: 'Sep', Oct: 'Oct', Nov: 'Nov', Dec: 'Dec',
+};
+
+/**
+ * Download one Drive XLS file and parse MEDIA + MIN rows from a named tab.
+ *
+ * The scraped XLS files are actually XLSX (Office Open XML) archives.
+ * Each nts tab (7 nts / 9 nts / 12 nts) contains:
+ *   Row 1   : month headers in cols B–M (Jan … Dec)
+ *   DEST 1/2/3 sections, each ending with:
+ *   MEDIA row : avg netto per person per month across hotels in that DEST
+ *   MIN row   : min netto (row immediately after MEDIA)
+ *
+ * Uses exceljs (already a project dependency) to read the buffer.
+ * Returns { month: { avg, min } } or null on error.
+ */
+async function parseXlsTab(xlsBuffer, tabIndex) {
+  const ExcelJS = require('exceljs');
+
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(xlsBuffer);
+
+  // tabIndex is 1-based sheet order (9 = "7 nts", 10 = "9 nts", 11 = "12 nts")
+  const ws = wb.worksheets[tabIndex - 1];
+  if (!ws) return null;
+
+  // ── month header row (row 1) ─────────────────────────────────────────────────
+  const headerRow = ws.getRow(1);
+  const colToMonth = {};  // 1-based col index → 'Jan' … 'Dec'
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNum) => {
+    const abbr = MONTH_MAP[String(cell.value || '').trim()];
+    if (abbr) colToMonth[colNum] = abbr;
+  });
+
+  // ── collect MEDIA rows ───────────────────────────────────────────────────────
+  const mediaSets = [];
+  const rowCount  = ws.rowCount;
+
+  for (let r = 2; r <= rowCount; r++) {
+    const row  = ws.getRow(r);
+    const colA = String(row.getCell(1).value || '').trim().toUpperCase();
+    if (colA !== 'MEDIA') continue;
+
+    const avgByMonth = {};
+    for (const [colNum, month] of Object.entries(colToMonth)) {
+      const v = parseFloat(row.getCell(Number(colNum)).value);
+      if (!isNaN(v) && v > 0) avgByMonth[month] = v;
+    }
+
+    // next non-empty row = MIN values
+    const minByMonth = {};
+    for (let k = r + 1; k <= Math.min(r + 3, rowCount); k++) {
+      const nextRow = ws.getRow(k);
+      const nextA   = String(nextRow.getCell(1).value || '').trim().toUpperCase();
+      if (nextA === 'MEDIA' || nextA.startsWith('DEST')) break;
+      // check if row has any numeric data
+      let hasData = false;
+      for (const colNum of Object.keys(colToMonth)) {
+        const v = parseFloat(nextRow.getCell(Number(colNum)).value);
+        if (!isNaN(v) && v > 0) { hasData = true; break; }
+      }
+      if (!hasData) continue;
+      for (const [colNum, month] of Object.entries(colToMonth)) {
+        const v = parseFloat(nextRow.getCell(Number(colNum)).value);
+        if (!isNaN(v) && v > 0) minByMonth[month] = v;
+      }
+      break;
+    }
+
+    mediaSets.push({ avg: avgByMonth, min: minByMonth });
+  }
+
+  if (mediaSets.length === 0) return null;
+
+  // ── average MEDIA values across all DEST sections ────────────────────────────
+  const result = {};
+  for (const month of Object.values(MONTH_MAP)) {
+    const avgs = mediaSets.map(s => s.avg[month]).filter(v => v != null && v > 0);
+    const mins = mediaSets.map(s => s.min[month]).filter(v => v != null && v > 0);
+    if (avgs.length === 0) continue;
+    result[month] = {
+      avg: avgs.reduce((a, b) => a + b, 0) / avgs.length,
+      min: mins.length > 0 ? Math.min(...mins) : null,
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Download all XLS files for a destination from Drive, parse a given tab
+ * (by sheet index), and return averaged { month: { avg, min } } across all files.
+ *
+ * @param {string[]} driveFileIds  — Drive file IDs of scraped XLS files
+ * @param {number}   tabIndex      — 1-based sheet index (9 = "7 nts", 10 = "9 nts", 11 = "12 nts")
+ * @returns {{ month: { avg, min } }} aggregated across all files
+ */
+async function readXlsMediaRates(driveFileIds, tabIndex) {
+  const drive = getDriveClient();
+
+  // Download and parse all files in parallel (cap at 20 to avoid rate limits)
+  const batch  = driveFileIds.slice(0, 20);
+  const parsed = await Promise.allSettled(
+    batch.map(async (fileId) => {
+      const resp = await drive.files.get(
+        { fileId, alt: 'media', supportsAllDrives: true },
+        { responseType: 'arraybuffer' },
+      );
+      const buf = Buffer.from(resp.data);
+      return parseXlsTab(buf, tabIndex);
+    })
+  );
+
+  // Merge: for each month, collect all avg/min values across files
+  const monthAvgs = {};
+  const monthMins = {};
+
+  for (const outcome of parsed) {
+    if (outcome.status !== 'fulfilled' || !outcome.value) continue;
+    for (const [month, { avg, min }] of Object.entries(outcome.value)) {
+      if (!monthAvgs[month]) { monthAvgs[month] = []; monthMins[month] = []; }
+      if (avg != null && avg > 0) monthAvgs[month].push(avg);
+      if (min != null && min > 0) monthMins[month].push(min);
+    }
+  }
+
+  const result = {};
+  for (const month of Object.keys(monthAvgs)) {
+    const avgs = monthAvgs[month];
+    const mins = monthMins[month];
+    if (avgs.length === 0) continue;
+    result[month] = {
+      avg: avgs.reduce((a, b) => a + b, 0) / avgs.length,
+      min: mins.length > 0 ? Math.min(...mins) : null,
+    };
+  }
+
+  return result;
+}
+
 // ─── Pricing constants ────────────────────────────────────────────────────────
 const BHI_MARKUP   = 1.06;
 const ITALIAN_VAT  = 1.23;
@@ -845,33 +988,54 @@ async function buildLaghiProposal(proposalFolderId, runDate, saleName) {
  * @param {string} proposalFolderId
  * @param {string} runDate
  */
-async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
+async function buildSardegnaProposal(driveSpreadsheetIds, proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Sardegna VP package proposal…');
   const salePrefix = saleName ? `${saleName} — ` : '';
-
-  // For Sardinia, source sheet not yet available at the time of writing.
-  // We use hardcoded 2026 VP actuals and emit a note that 2027 rates need the source sheet.
-  // Once the source sheet is available, this can be enhanced to read netto rates.
-
-  const pkgDefs   = {};
-  const monthData = {};
 
   // Sardinia active months (from contract): Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov
   const sardMonths = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
 
+  // Tab indices in the scraped XLS: 9=7nts, 10=9nts, 11=12nts
+  // Sardegna packages: 7nts, 10nts, 12nts
+  // 10nts: no dedicated tab — use blended of 9nts rate × 10 nights
+  console.log('  → Reading scraped XLS files from Drive…');
+  const [rates7, rates9, rates12] = await Promise.all([
+    driveSpreadsheetIds.length > 0 ? readXlsMediaRates(driveSpreadsheetIds, 9)  : {},
+    driveSpreadsheetIds.length > 0 ? readXlsMediaRates(driveSpreadsheetIds, 10) : {},
+    driveSpreadsheetIds.length > 0 ? readXlsMediaRates(driveSpreadsheetIds, 11) : {},
+  ]);
+
+  const pkgDefs   = {};
+  const monthData = {};
+
   for (const [pkgKey, pkg] of Object.entries(SARDEGNA_PACKAGES)) {
-    pkgDefs[pkgKey] = { label: pkg.label, expTotal: pkg.expTotal };
+    pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
     monthData[pkgKey] = {};
 
-    for (const month of sardMonths) {
-      // 2026 VP actual
-      const vp26 = VP2026.sardegna[pkgKey]?.[month] ?? null;
+    // Pick the right rates table per package duration
+    const ratesTable = pkgKey === '7nts'  ? rates7
+                     : pkgKey === '10nts' ? rates9    // closest available
+                     : rates12;
 
-      // 2027 VP: not yet available without source sheet
-      // Placeholder — will be populated when scrape completes
-      const vp27    = null;
-      const minSell = null;
-      const blended = null;
+    for (const month of sardMonths) {
+      const vp26 = VP2026.sardegna[pkgKey]?.[month] ?? null;
+      const r    = ratesTable[month];
+
+      let minSell = null;
+      let blended = null;
+      let vp27    = null;
+
+      if (r?.avg != null) {
+        // For 10nts we scale from 9nts rates
+        const nights = pkgKey === '7nts' ? 7 : pkgKey === '10nts' ? 10 : 12;
+        const perNight = r.avg;
+        const minPerNight = r.min ?? r.avg;
+        const accNetto     = perNight    * nights;
+        const accNettoMin  = minPerNight * nights;
+        minSell = sellPrice(accNettoMin, pkg.expTotal);
+        blended = sellPrice((accNetto + accNettoMin) / 2, pkg.expTotal);
+        vp27    = blended;
+      }
 
       monthData[pkgKey][month] = { min: minSell, blended, vp27, vp26 };
     }
@@ -886,7 +1050,9 @@ async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate, s
     runDate,
     tier:         '',
     variantLabel: 'Standard (4★)',
-    notes:        'MIN/Blended/VP 2027: awaiting scraped source sheet  |  ' +
+    notes:        'MIN = cheapest netto × 1.06 × 1.23  |  ' +
+                  'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
+                  'VP 2027 = Blended sell  |  ' +
                   'VP 2026 from Drive VP contract PDFs (Aug 2026 version)  |  ' +
                   'Experience costs: 7nts €80pp (boat+wine), 10/12nts €170pp (+cooking class)',
   });
@@ -894,12 +1060,20 @@ async function buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate, s
 
 // ─── TOSCANA builder ──────────────────────────────────────────────────────────
 
-async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
+async function buildToscanaProposal(driveSpreadsheetIds, proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Toscana VP package proposal…');
   const salePrefix = saleName ? `${saleName} — ` : '';
 
   // Tuscany months (from contract): Oct, Nov, Dec, Jan, Feb, Mar, Apr, May, Jun
   const toscanaMonths = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+
+  // Tab indices in the scraped XLS: 9=7nts (closest to 5nts), 10=9nts (not used)
+  // Toscana packages: 5nts and 7nts
+  console.log('  → Reading scraped XLS files from Drive…');
+  const [rates7, rates9] = await Promise.all([
+    driveSpreadsheetIds.length > 0 ? readXlsMediaRates(driveSpreadsheetIds, 9)  : {},
+    driveSpreadsheetIds.length > 0 ? readXlsMediaRates(driveSpreadsheetIds, 10) : {},
+  ]);
 
   const pkgDefs   = {};
   const monthData = {};
@@ -908,15 +1082,29 @@ async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, sa
     pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
     monthData[pkgKey] = {};
 
+    // 5nts: use 7nts rate table (scale to 5 nights), 7nts: use 7nts table directly
+    const ratesTable = rates7;
+    const nights     = pkgKey === '5nts' ? 5 : 7;
+
     for (const month of toscanaMonths) {
       const vp26 = VP2026.toscana[pkgKey]?.[month] ?? null;
+      const r    = ratesTable[month];
 
-      monthData[pkgKey][month] = {
-        min:     null,   // awaiting source sheet
-        blended: null,
-        vp27:    null,
-        vp26,
-      };
+      let minSell = null;
+      let blended = null;
+      let vp27    = null;
+
+      if (r?.avg != null) {
+        const perNight    = r.avg;
+        const minPerNight = r.min ?? r.avg;
+        const accNetto    = perNight    * nights;
+        const accNettoMin = minPerNight * nights;
+        minSell = sellPrice(accNettoMin, pkg.expTotal);
+        blended = sellPrice((accNetto + accNettoMin) / 2, pkg.expTotal);
+        vp27    = blended;
+      }
+
+      monthData[pkgKey][month] = { min: minSell, blended, vp27, vp26 };
     }
   }
 
@@ -929,7 +1117,9 @@ async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, sa
     runDate,
     tier:         '',
     variantLabel: 'Standard (4★)',
-    notes:        'MIN/Blended/VP 2027: awaiting scraped source sheet  |  ' +
+    notes:        'MIN = cheapest netto × 1.06 × 1.23  |  ' +
+                  'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
+                  'VP 2027 = Blended sell  |  ' +
                   'VP 2026 from Drive VP contract PDFs (Sept 2026 v2)  |  ' +
                   'Experience costs: 5nts €35pp (wine tasting), 7nts €45pp (wine tasting)',
   });
@@ -937,12 +1127,18 @@ async function buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, sa
 
 // ─── LIGURIA builder ──────────────────────────────────────────────────────────
 
-async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
+async function buildLiguriaProposal(driveSpreadsheetIds, proposalFolderId, runDate, saleName) {
   console.log('\n📦  Building Liguria VP package proposal…');
   const salePrefix = saleName ? `${saleName} — ` : '';
 
   // Liguria months (from contract): Jun, Jul, Aug, Sep, Oct
   const liguriaMonths = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+
+  // Tab index 9 = "7 nts" tab in scraped XLS files
+  console.log('  → Reading scraped XLS files from Drive…');
+  const rates7 = driveSpreadsheetIds.length > 0
+    ? await readXlsMediaRates(driveSpreadsheetIds, 9)
+    : {};
 
   const pkgDefs   = {};
   const monthData = {};
@@ -951,15 +1147,27 @@ async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate, sa
     pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
     monthData[pkgKey] = {};
 
+    const nights = pkgKey === '5nts' ? 5 : 7;
+
     for (const month of liguriaMonths) {
       const vp26 = VP2026.liguria[pkgKey]?.[month] ?? null;
+      const r    = rates7[month];
 
-      monthData[pkgKey][month] = {
-        min:     null,
-        blended: null,
-        vp27:    null,
-        vp26,
-      };
+      let minSell = null;
+      let blended = null;
+      let vp27    = null;
+
+      if (r?.avg != null) {
+        const perNight    = r.avg;
+        const minPerNight = r.min ?? r.avg;
+        const accNetto    = perNight    * nights;
+        const accNettoMin = minPerNight * nights;
+        minSell = sellPrice(accNettoMin, pkg.expTotal);
+        blended = sellPrice((accNetto + accNettoMin) / 2, pkg.expTotal);
+        vp27    = blended;
+      }
+
+      monthData[pkgKey][month] = { min: minSell, blended, vp27, vp26 };
     }
   }
 
@@ -972,7 +1180,9 @@ async function buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate, sa
     runDate,
     tier:         '',
     variantLabel: 'Standard (4★)',
-    notes:        'MIN/Blended/VP 2027: awaiting scraped source sheet  |  ' +
+    notes:        'MIN = cheapest netto × 1.06 × 1.23  |  ' +
+                  'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
+                  'VP 2027 = Blended sell  |  ' +
                   'VP 2026 from Drive VP contract PDFs (June 2026 version)  |  ' +
                   'Experience costs: 5nts €45pp (CT boat + pesto), 7nts €60pp (CT boat + pesto)',
   });
@@ -1050,20 +1260,20 @@ async function buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, sal
  * @param {string}   [saleName]            — Optional VP flash sale name for file labelling
  */
 async function buildPackageProposal(destination, driveSpreadsheetIds, proposalFolderId, runDate, saleName) {
-  const sourceSheetId = Array.isArray(driveSpreadsheetIds) ? driveSpreadsheetIds[0] : null;
+  const ids = Array.isArray(driveSpreadsheetIds) ? driveSpreadsheetIds : (driveSpreadsheetIds ? [driveSpreadsheetIds] : []);
 
   switch (destination) {
     case 'laghi':
       return buildLaghiProposal(proposalFolderId, runDate, saleName);
 
     case 'sardegna':
-      return buildSardegnaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
+      return buildSardegnaProposal(ids, proposalFolderId, runDate, saleName);
 
     case 'toscana':
-      return buildToscanaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
+      return buildToscanaProposal(ids, proposalFolderId, runDate, saleName);
 
     case 'liguria':
-      return buildLiguriaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
+      return buildLiguriaProposal(ids, proposalFolderId, runDate, saleName);
 
     case 'puglia':
       return buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
