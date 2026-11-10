@@ -3037,7 +3037,7 @@ async function runBatch(page, batch, downloadDir) {
       return prev === null ? !!href : href !== prev;
     },
     previousXlsHref,
-    { timeout: 300000, polling: 3000 }
+    { timeout: 900000, polling: 3000 }
   );
 
   const downloadLink = page.locator('a[href$=".xls"], a[href$=".xlsx"]').first();
