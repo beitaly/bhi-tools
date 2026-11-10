@@ -2921,12 +2921,24 @@ async function login(page) {
 async function runBatch(page, batch, downloadDir) {
   console.log(`\n  🔍  ${batch.label} (${batch.hotels.length} hotel${batch.hotels.length > 1 ? 's' : ''})`);
 
-  // Navigate to search page (login + search are both on index.php)
+  // ── Step 1: record the existing XLS href on status.php so we can detect
+  // when the portal has generated a NEW file for this batch. Without this,
+  // we risk downloading a stale result from a previous search.
+  let previousXlsHref = null;
+  try {
+    await page.goto(`${BASE_URL}/status.php`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const existingLink = page.locator('a[href$=".xls"], a[href$=".xlsx"]').first();
+    if (await existingLink.count() > 0) {
+      previousXlsHref = await existingLink.getAttribute('href').catch(() => null);
+      if (previousXlsHref) console.log(`    ℹ Existing XLS on status page: ${previousXlsHref}`);
+    }
+  } catch (_) { /* status page may be empty on first run */ }
+
+  // ── Step 2: fill the search form on index.php
   await page.goto(`${BASE_URL}/index.php`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   // The "Select Hotels" field is a Select2 multi-select widget.
   // The underlying element is <select id="hotels-select">.
-  // We interact via the Select2 JS API for reliability.
   await page.waitForSelector('#hotels-select', { timeout: 15000 });
 
   for (const hotelName of batch.hotels) {
@@ -2987,16 +2999,14 @@ async function runBatch(page, batch, downloadDir) {
     await page.waitForTimeout(400);
   }
 
-  // Click "Schedule search by year" button
+  // ── Step 3: submit and wait for a *new* XLS on status.php
   console.log('    → Clicking "Schedule search by year"…');
   await page.click('button:has-text("Schedule search by year"), input[value*="Schedule search by year"]');
 
   // The form submission takes us to (or reloads to) status.php
-  // Use a navigation wait with fallback
   await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 })
     .catch(() => page.waitForTimeout(5000));
 
-  // If we're not on status.php yet, click "Search status" link/button
   if (!page.url().includes('status.php')) {
     console.log('    → Navigating to status.php…');
     const statusBtn = page.locator('button:has-text("Search status"), a:has-text("Search status"), a[href*="status"]').first();
@@ -3006,14 +3016,22 @@ async function runBatch(page, batch, downloadDir) {
     await page.waitForTimeout(3000);
   }
 
-  // On status.php — wait for download link (XLS file for this search)
-  // The search runs server-side so it may take a minute; poll for up to 5 minutes
-  console.log('    → Waiting for XLS download link on status page…');
-  const downloadLink = page.locator(
-    'a[href$=".xls"], a[href$=".xlsx"], a:has-text("Download"), a:has-text("XLS"), a:has-text("Excel")'
-  ).first();
+  // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
+  // This ensures we download the result of THIS search, not a previous one.
+  console.log('    → Waiting for new XLS download link on status page…');
+  await page.waitForFunction(
+    (prev) => {
+      const link = document.querySelector('a[href$=".xls"], a[href$=".xlsx"]');
+      if (!link) return false;
+      const href = link.getAttribute('href');
+      // Accept any link when there was no previous one, or when the href has changed
+      return prev === null ? !!href : href !== prev;
+    },
+    previousXlsHref,
+    { timeout: 300000, polling: 3000 }
+  );
 
-  await downloadLink.waitFor({ timeout: 300000 }); // up to 5 min for server-side search
+  const downloadLink = page.locator('a[href$=".xls"], a[href$=".xlsx"]').first();
 
   const date = new Date().toISOString().slice(0, 10);
   const safeName = batch.label.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
