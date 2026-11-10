@@ -9,9 +9,9 @@
  *   - Liguria                 — 5nts and 7nts
  *
  * ─── PRICING CHAIN ───────────────────────────────────────────────────────────
- * VP sell price = (accommodation_netto_pp + experiences_netto_pp) × 1.06 × 1.23
- *   1.06 = BHI markup (6%)
- *   1.23 = Italian VAT (23%)
+ * VP sell price = (acc_netto_pp + exp_netto_pp) × (1 + 0.06 × 1.23)  =  cost × 1.0738
+ *   0.06 = BHI margin (6% on cost)
+ *   0.23 = Italian VAT — applied to BHI margin only, not to full package cost
  *
  * ─── LAGHI PACKAGE VARIANTS ──────────────────────────────────────────────────
  * v1 "Black Friday" (5nts only):
@@ -241,12 +241,17 @@ async function readXlsMediaRates(driveFileIds, tabIndex) {
 }
 
 // ─── Pricing constants ────────────────────────────────────────────────────────
-const BHI_MARKUP   = 1.06;
-const ITALIAN_VAT  = 1.23;
-const TOTAL_MARKUP = BHI_MARKUP * ITALIAN_VAT;  // 1.3038
+// VAT (23%) applies to BHI's margin only, not to the full package cost.
+// BHI margin = 6% on netto cost.
+// sell = cost + cost×0.06 + cost×0.06×0.23
+//      = cost × (1 + 0.06 × 1.23)
+//      = cost × 1.0738
+const BHI_MARGIN_RATE = 0.06;
+const ITALIAN_VAT     = 0.23;
+const TOTAL_MULTIPLIER = 1 + BHI_MARGIN_RATE * (1 + ITALIAN_VAT);  // 1.0738
 
 function sellPrice(accNettoPP, expNettoPP) {
-  return Math.round((accNettoPP + expNettoPP) * TOTAL_MARKUP);
+  return Math.round((accNettoPP + expNettoPP) * TOTAL_MULTIPLIER);
 }
 
 // ─── 2026 VP Actuals (hardcoded from Drive contract PDFs) ────────────────────
@@ -686,16 +691,16 @@ async function writeProposalTab(opts) {
   }
 
   const notesText = notes ||
-    'MIN = cheapest netto × 1.06 × 1.23  |  ' +
-    'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
+    'MIN = min netto pp × (1 + 6%×1.23)  |  ' +
+    'Blended = (AVG+MIN)/2 pp × (1 + 6%×1.23)  |  ' +
     'VP 2027 = contract price from source sheet  |  ' +
     'VP 2026 = from Drive VP contract PDFs  |  ' +
-    'Diff = VP 2027 − VP 2026';
+    'Diff = VP 2027 − VP 2026  |  VAT (23%) on BHI margin only';
 
   const titleText = tier ? `${title}  [${tier}]` : title;
   const subtitleText = variantLabel
-    ? `Generated: ${runDate}  |  ${variantLabel}  |  Pricing: acc netto × 1.06 × 1.23`
-    : `Generated: ${runDate}  |  Pricing: acc netto × 1.06 × 1.23`;
+    ? `Generated: ${runDate}  |  ${variantLabel}  |  Pricing: cost × (1 + 6%×1.23) — VAT on margin only`
+    : `Generated: ${runDate}  |  Pricing: cost × (1 + 6%×1.23) — VAT on margin only`;
 
   const allRows = [
     [titleText],
@@ -1050,11 +1055,11 @@ async function buildSardegnaProposal(driveSpreadsheetIds, proposalFolderId, runD
     runDate,
     tier:         '',
     variantLabel: 'Standard (4★)',
-    notes:        'MIN = cheapest netto × 1.06 × 1.23  |  ' +
-                  'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
-                  'VP 2027 = Blended sell  |  ' +
+    notes:        'MIN = min netto pp × (1 + 6%×1.23)  |  ' +
+                  'Blended = (AVG+MIN)/2 pp × (1 + 6%×1.23)  |  ' +
+                  'VP 2027 = Blended sell (no contract yet)  |  ' +
                   'VP 2026 from Drive VP contract PDFs (Aug 2026 version)  |  ' +
-                  'Experience costs: 7nts €80pp (boat+wine), 10/12nts €170pp (+cooking class)',
+                  'Experience costs: 7nts €80pp (boat+wine), 10/12nts €170pp (+cooking class)  |  VAT on BHI margin only',
   });
 }
 
@@ -1117,11 +1122,11 @@ async function buildToscanaProposal(driveSpreadsheetIds, proposalFolderId, runDa
     runDate,
     tier:         '',
     variantLabel: 'Standard (4★)',
-    notes:        'MIN = cheapest netto × 1.06 × 1.23  |  ' +
-                  'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
-                  'VP 2027 = Blended sell  |  ' +
+    notes:        'MIN = min netto pp × (1 + 6%×1.23)  |  ' +
+                  'Blended = (AVG+MIN)/2 pp × (1 + 6%×1.23)  |  ' +
+                  'VP 2027 = Blended sell (no contract yet)  |  ' +
                   'VP 2026 from Drive VP contract PDFs (Sept 2026 v2)  |  ' +
-                  'Experience costs: 5nts €35pp (wine tasting), 7nts €45pp (wine tasting)',
+                  'Experience costs: 5nts €35pp (wine tasting), 7nts €45pp (wine tasting)  |  VAT on BHI margin only',
   });
 }
 
@@ -1180,11 +1185,11 @@ async function buildLiguriaProposal(driveSpreadsheetIds, proposalFolderId, runDa
     runDate,
     tier:         '',
     variantLabel: 'Standard (4★)',
-    notes:        'MIN = cheapest netto × 1.06 × 1.23  |  ' +
-                  'Blended = (AVG+MIN)/2 × 1.06 × 1.23  |  ' +
-                  'VP 2027 = Blended sell  |  ' +
+    notes:        'MIN = min netto pp × (1 + 6%×1.23)  |  ' +
+                  'Blended = (AVG+MIN)/2 pp × (1 + 6%×1.23)  |  ' +
+                  'VP 2027 = Blended sell (no contract yet)  |  ' +
                   'VP 2026 from Drive VP contract PDFs (June 2026 version)  |  ' +
-                  'Experience costs: 5nts €45pp (CT boat + pesto), 7nts €60pp (CT boat + pesto)',
+                  'Experience costs: 5nts €45pp (CT boat + pesto), 7nts €60pp (CT boat + pesto)  |  VAT on BHI margin only',
   });
 }
 
