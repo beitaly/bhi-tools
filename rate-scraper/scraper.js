@@ -3367,6 +3367,11 @@ app.get('/stopsale/:destination?', async (req, res) => {
     .catch(err => console.error(`Stop sale report error (${dest}):`, err.message));
 });
 
+// Global lock — only one scrape (or stopsale/proposal) may use the browser at a time.
+// If a second /run request arrives while one is in progress, it is queued and will
+// start automatically once the current scrape finishes.
+let scrapeQueue = Promise.resolve();
+
 app.get('/run/:destination?', async (req, res) => {
   const dest = req.params.destination || null;
   const startFrom = parseInt(req.query.from || '0', 10) || 0;
@@ -3374,10 +3379,10 @@ app.get('/run/:destination?', async (req, res) => {
   const skipProposal = req.query.proposal === 'false';
 
   console.log(`\n🚀  Scrape triggered — destination: ${dest || 'ALL'}, from=${startFrom}, to=${endAt ?? 'end'}, proposal=${!skipProposal}`);
-  res.json({ status: 'started', destination: dest || 'all', from: startFrom, to: endAt, ts: new Date().toISOString() });
+  res.json({ status: 'queued', destination: dest || 'all', from: startFrom, to: endAt, ts: new Date().toISOString() });
 
-  // Run in background so the HTTP response returns immediately
-  runScraper(dest, startFrom, endAt)
+  // Chain onto the global queue so concurrent /run requests run sequentially
+  scrapeQueue = scrapeQueue.then(() => runScraper(dest, startFrom, endAt))
     .then(async ({ results, errors }) => {
       console.log(`\n✅  Scrape complete. ${results.length} succeeded, ${errors.length} failed.`);
       if (errors.length) console.error('Errors:', errors);
