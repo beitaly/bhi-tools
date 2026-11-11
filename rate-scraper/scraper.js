@@ -481,8 +481,16 @@ async function runBatch(page, batch, downloadDir) {
   await page.waitForSelector('#hotels-select', { timeout: 15000 });
 
   // ── Step 2a: set required form fields before hotel selection
-  // rooms[0][type] = dbl (double room)
-  await page.selectOption('select[name="rooms[0][type]"]', 'dbl').catch(e => console.warn('    ⚠ Could not set room type:', e.message));
+  // rooms[0][type] = dbl (double room) — the native <select> is hidden by Select2,
+  // so we set it via JavaScript directly instead of page.selectOption.
+  await page.evaluate(() => {
+    const sel = document.querySelector('select[name="rooms[0][type]"]');
+    if (sel) {
+      sel.value = 'dbl';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }).catch(e => console.warn('    ⚠ Could not set room type via JS:', e.message));
+  console.log('    ✓ Set room type: dbl (via JS)');
   // rooms[0][count] = 5
   await page.fill('input[name="rooms[0][count]"]', '5').catch(e => console.warn('    ⚠ Could not set room count:', e.message));
   // treatments[] = breakfast included — open the Select2 dropdown and pick it
