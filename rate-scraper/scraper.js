@@ -619,26 +619,51 @@ async function runBatch(page, batch, downloadDir) {
   page.on('request', reqHandler);
   page.on('response', respHandler);
 
-  // Log the submit button's outer HTML so we can see exactly what element we're clicking
-  const submitBtnHtml = await page.evaluate(() => {
-    const btn = document.querySelector('button, input[type="submit"]');
-    const allBtns = [...document.querySelectorAll('button, input[type="submit"], input[type="button"]')];
-    return allBtns.map(b => b.outerHTML).join('\n');
-  });
-  console.log(`    🔍 All submit-like elements on page:\n${submitBtnHtml}`);
+  // The submit button is type="submit" with name="action" value="schedule-search".
+  // A JS listener calls event.preventDefault() on the form submit event, so a normal
+  // button click fires no network request. We need to find what that JS handler does
+  // and replicate it — or trigger the form submission in a way it accepts.
+  //
+  // Strategy: use page.evaluate() to read the form's action URL and all field values,
+  // then POST directly via fetch() from within the page (same session/cookies).
+  console.log('    → Submitting form via in-page fetch (bypassing JS preventDefault)…');
+  const fetchResult = await page.evaluate(async () => {
+    // Find the form
+    const form = document.querySelector('form');
+    if (!form) return { error: 'No form found' };
 
-  console.log('    → Clicking "Schedule search by year"…');
-  await page.click('button:has-text("Schedule search by year"), input[value*="Schedule search by year"]');
-  console.log('    → Waiting 10s for form POST to complete…');
-  await page.waitForTimeout(10000);
+    // Collect all form data
+    const fd = new FormData(form);
+    // The submit button's name/value must be included manually (FormData omits it)
+    fd.set('action', 'schedule-search');
+
+    // Log what we're sending
+    const entries = [...fd.entries()].map(([k, v]) => `${k}=${v}`).join('&');
+
+    try {
+      const resp = await fetch(form.action || window.location.href, {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+      });
+      const text = await resp.text();
+      return {
+        status: resp.status,
+        url: resp.url,
+        formAction: form.action,
+        fields: entries,
+        responsePreview: text.substring(0, 1000),
+      };
+    } catch (e) {
+      return { error: e.message, fields: entries };
+    }
+  });
+  console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
 
   page.off('request', reqHandler);
   page.off('response', respHandler);
   for (const req of interceptedRequests) {
     console.log(`    📤 POST to ${req.url}: ${req.postData}`);
-  }
-  if (interceptedRequests.length === 0) {
-    console.warn('    ⚠ No POST request detected after button click — button may not be submitting');
   }
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
