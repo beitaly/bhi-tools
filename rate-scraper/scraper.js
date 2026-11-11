@@ -602,68 +602,112 @@ async function runBatch(page, batch, downloadDir) {
   }
 
   // ── Step 3: submit and wait for a *new* XLS on status.php
-  // The portal submits via AJAX (page does NOT navigate after clicking).
-  // Intercept the outgoing request to log exactly what gets posted and what comes back.
-  const interceptedRequests = [];
-  const reqHandler = async (request) => {
-    if (request.method() === 'POST') {
-      interceptedRequests.push({ url: request.url(), postData: request.postData() });
-    }
-  };
-  const respHandler = async (response) => {
-    if (response.request().method() === 'POST') {
-      const body = await response.text().catch(() => '(could not read body)');
-      console.log(`    📡 POST response [${response.status()}] ${response.url()}: ${body.substring(0, 500)}`);
-    }
-  };
-  page.on('request', reqHandler);
-  page.on('response', respHandler);
-
-  // The submit button is type="submit" with name="action" value="schedule-search".
-  // A JS listener calls event.preventDefault() on the form submit event, so a normal
-  // button click fires no network request. We need to find what that JS handler does
-  // and replicate it — or trigger the form submission in a way it accepts.
-  //
-  // Strategy: use page.evaluate() to read the form's action URL and all field values,
-  // then POST directly via fetch() from within the page (same session/cookies).
-  console.log('    → Submitting form via in-page fetch (bypassing JS preventDefault)…');
+  // The portal uses JS that calls event.preventDefault() on the form submit, so a
+  // normal button click fires no network request.  We POST manually via fetch()
+  // from inside the page (same session cookies), building the body ourselves because
+  // FormData(form) only captures native inputs — Select2 widgets keep their values in
+  // their own JS state and do NOT update the underlying <select> elements in a way
+  // that FormData can read.  Instead we read every <select> for its selectedOptions and
+  // combine them with the fixed fields we set directly on native inputs.
+  console.log('    → Collecting form state and submitting via in-page fetch…');
   const fetchResult = await page.evaluate(async () => {
-    // Find the form
     const form = document.querySelector('form');
     if (!form) return { error: 'No form found' };
 
-    // Collect all form data
-    const fd = new FormData(form);
-    // The submit button's name/value must be included manually (FormData omits it)
-    fd.set('action', 'schedule-search');
+    // Build URLSearchParams manually — works with application/x-www-form-urlencoded
+    const params = new URLSearchParams();
 
-    // Log what we're sending
-    const entries = [...fd.entries()].map(([k, v]) => `${k}=${v}`).join('&');
+    // ── fixed hidden / native fields ──────────────────────────────────────────
+    // logout hidden input
+    const logoutEl = form.querySelector('input[name="logout"]');
+    if (logoutEl) params.append('logout', logoutEl.value);
+
+    // rooms[0][count]
+    const roomCount = form.querySelector('input[name="rooms[0][count]"]');
+    if (roomCount) params.append('rooms[0][count]', roomCount.value);
+
+    // rooms[0][type]  — may be a hidden <select> updated by Select2 (nth 2)
+    // We set it via JS earlier; read the value back
+    const roomType = form.querySelector('select[name="rooms[0][type]"]');
+    if (roomType) {
+      for (const opt of roomType.selectedOptions) params.append('rooms[0][type]', opt.value);
+    }
+
+    // checkin / checkout
+    const checkin = form.querySelector('input[name="checkin"]');
+    if (checkin) params.append('checkin', checkin.value);
+    const checkout = form.querySelector('input[name="checkout"]');
+    if (checkout) params.append('checkout', checkout.value);
+
+    // stars[] — checkboxes
+    for (const cb of form.querySelectorAll('input[name="stars[]"]:checked')) {
+      params.append('stars[]', cb.value);
+    }
+
+    // contract — radio
+    const contractRadio = form.querySelector('input[name="contract"]:checked');
+    if (contractRadio) params.append('contract', contractRadio.value);
+
+    // ── Select2 multi-select fields ───────────────────────────────────────────
+    // cityNames[] — the first <select> managed by Select2
+    const citySelect = form.querySelector('select[name="cityNames[]"]');
+    if (citySelect) {
+      for (const opt of citySelect.selectedOptions) params.append('cityNames[]', opt.value);
+    }
+
+    // hotels[] — the second <select> managed by Select2
+    const hotelSelect = form.querySelector('select[name="hotels[]"]');
+    if (hotelSelect) {
+      for (const opt of hotelSelect.selectedOptions) params.append('hotels[]', opt.value);
+    }
+
+    // treatments[] — the third <select> managed by Select2
+    const treatSelect = form.querySelector('select[name="treatments[]"]');
+    if (treatSelect) {
+      for (const opt of treatSelect.selectedOptions) params.append('treatments[]', opt.value);
+    }
+
+    // ── submit button value ───────────────────────────────────────────────────
+    params.append('action', 'schedule-search');
+
+    const fieldsStr = params.toString();
+    console.log('Fields being POSTed:', fieldsStr);
+
+    // Snapshot all <select> selectedOptions for diagnostics
+    const selectDiag = {};
+    for (const sel of form.querySelectorAll('select')) {
+      const name = sel.name || sel.id || '(unnamed)';
+      selectDiag[name] = [...sel.options].map(o => ({ value: o.value, text: o.text, selected: o.selected }));
+    }
 
     try {
       const resp = await fetch(form.action || window.location.href, {
         method: 'POST',
-        body: fd,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: fieldsStr,
         credentials: 'include',
+        redirect: 'follow',
       });
       const text = await resp.text();
       return {
         status: resp.status,
         url: resp.url,
         formAction: form.action,
-        fields: entries,
-        responsePreview: text.substring(0, 1000),
+        fields: fieldsStr,
+        selectDiag,
+        responsePreview: text.substring(0, 500),
       };
     } catch (e) {
-      return { error: e.message, fields: entries };
+      return { error: e.message, fields: fieldsStr, selectDiag };
     }
   });
   console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
 
-  page.off('request', reqHandler);
-  page.off('response', respHandler);
-  for (const req of interceptedRequests) {
-    console.log(`    📤 POST to ${req.url}: ${req.postData}`);
+  // If the response is the login page, the session expired — log a clear error
+  if (fetchResult.responsePreview && fetchResult.responsePreview.includes('<title>Login</title>')) {
+    console.error('    ✗ Portal returned login page — session may have expired during form fill');
+  } else if (fetchResult.status === 200 || fetchResult.status === 302) {
+    console.log('    ✓ POST accepted by portal');
   }
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
