@@ -581,10 +581,18 @@ async function runBatch(page, batch, downloadDir) {
     if (!matched) {
       console.warn(`    ✗ No match for: ${itemName} — skipping`);
     }
-    // Always close the Select2 dropdown after each selection attempt
-    // (pressing Escape closes it without deselecting; a click outside also works)
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(400);
+    // Close the Select2 dropdown by clicking outside it (top-left corner of page,
+    // away from any dropdown options). Escape alone is unreliable in headless mode.
+    await page.evaluate(() => {
+      const open = document.querySelector('.select2-container--open');
+      if (open) {
+        // Click the body at a safe coordinate to close the dropdown
+        document.body.click();
+        // Also dispatch a mousedown on body which Select2 listens to for close
+        document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(500);
   }
 
   // If nothing was selected, skip submission
