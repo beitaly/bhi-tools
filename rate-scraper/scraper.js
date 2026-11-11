@@ -603,11 +603,43 @@ async function runBatch(page, batch, downloadDir) {
 
   // ── Step 3: submit and wait for a *new* XLS on status.php
   // The portal submits via AJAX (page does NOT navigate after clicking).
-  // Just click and wait 10s for the POST to complete, then go straight to polling.
+  // Intercept the outgoing request to log exactly what gets posted and what comes back.
+  const interceptedRequests = [];
+  const reqHandler = async (request) => {
+    if (request.method() === 'POST') {
+      interceptedRequests.push({ url: request.url(), postData: request.postData() });
+    }
+  };
+  const respHandler = async (response) => {
+    if (response.request().method() === 'POST') {
+      const body = await response.text().catch(() => '(could not read body)');
+      console.log(`    📡 POST response [${response.status()}] ${response.url()}: ${body.substring(0, 500)}`);
+    }
+  };
+  page.on('request', reqHandler);
+  page.on('response', respHandler);
+
+  // Log the submit button's outer HTML so we can see exactly what element we're clicking
+  const submitBtnHtml = await page.evaluate(() => {
+    const btn = document.querySelector('button, input[type="submit"]');
+    const allBtns = [...document.querySelectorAll('button, input[type="submit"], input[type="button"]')];
+    return allBtns.map(b => b.outerHTML).join('\n');
+  });
+  console.log(`    🔍 All submit-like elements on page:\n${submitBtnHtml}`);
+
   console.log('    → Clicking "Schedule search by year"…');
   await page.click('button:has-text("Schedule search by year"), input[value*="Schedule search by year"]');
   console.log('    → Waiting 10s for form POST to complete…');
   await page.waitForTimeout(10000);
+
+  page.off('request', reqHandler);
+  page.off('response', respHandler);
+  for (const req of interceptedRequests) {
+    console.log(`    📤 POST to ${req.url}: ${req.postData}`);
+  }
+  if (interceptedRequests.length === 0) {
+    console.warn('    ⚠ No POST request detected after button click — button may not be submitting');
+  }
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
   // This ensures we download the result of THIS search, not a previous one.
