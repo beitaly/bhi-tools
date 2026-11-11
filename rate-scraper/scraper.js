@@ -2941,6 +2941,34 @@ async function runBatch(page, batch, downloadDir) {
   // The underlying element is <select id="hotels-select">.
   await page.waitForSelector('#hotels-select', { timeout: 15000 });
 
+  // ── Step 2a: set required form fields before hotel selection
+  // rooms[0][type] = dbl (double room)
+  await page.selectOption('select[name="rooms[0][type]"]', 'dbl').catch(e => console.warn('    ⚠ Could not set room type:', e.message));
+  // rooms[0][count] = 5
+  await page.fill('input[name="rooms[0][count]"]', '5').catch(e => console.warn('    ⚠ Could not set room count:', e.message));
+  // treatments[] = breakfast included — open the Select2 dropdown and pick it
+  try {
+    const treatmentsSearchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(2);
+    await treatmentsSearchBox.click();
+    await treatmentsSearchBox.type('breakfast', { delay: 80 });
+    await page.waitForFunction(() => {
+      const opts = document.querySelectorAll('.select2-results__option');
+      return opts.length > 0 && ![...opts].every(o => o.textContent.includes('Searching'));
+    }, { timeout: 8000 }).catch(() => null);
+    const treatmentOpts = await page.locator('.select2-results__option').all();
+    for (const opt of treatmentOpts) {
+      const text = (await opt.textContent() || '').toLowerCase();
+      if (text.includes('breakfast')) { await opt.click(); break; }
+    }
+    console.log('    ✓ Set treatment: breakfast');
+  } catch (e) { console.warn('    ⚠ Could not set treatment:', e.message); }
+  // stars[] = 4
+  await page.check('input[name="stars[]"][value="4"]').catch(e => console.warn('    ⚠ Could not set stars:', e.message));
+  // checkin / checkout dates
+  await page.fill('input[name="checkin"]', '2027-01-01').catch(e => console.warn('    ⚠ Could not set checkin:', e.message));
+  await page.fill('input[name="checkout"]', '2027-12-31').catch(e => console.warn('    ⚠ Could not set checkout:', e.message));
+  console.log('    ✓ Form fields set: rooms=5, type=dbl, board=breakfast, stars=4, 2027-01-01→2027-12-31');
+
   let selectedCount = 0;
   for (const hotelName of batch.hotels) {
     console.log(`    → Selecting: ${hotelName}`);
