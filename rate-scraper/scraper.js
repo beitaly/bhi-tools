@@ -580,8 +580,10 @@ async function runBatch(page, batch, downloadDir) {
     }
     if (!matched) {
       console.warn(`    ✗ No match for: ${itemName} — skipping`);
-      await page.keyboard.press('Escape');
     }
+    // Always close the Select2 dropdown after each selection attempt
+    // (pressing Escape closes it without deselecting; a click outside also works)
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
   }
 
