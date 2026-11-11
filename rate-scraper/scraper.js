@@ -2967,7 +2967,9 @@ async function runBatch(page, batch, downloadDir) {
   // checkin / checkout dates
   await page.fill('input[name="checkin"]', '2027-01-01').catch(e => console.warn('    ⚠ Could not set checkin:', e.message));
   await page.fill('input[name="checkout"]', '2027-12-31').catch(e => console.warn('    ⚠ Could not set checkout:', e.message));
-  console.log('    ✓ Form fields set: rooms=5, type=dbl, board=breakfast, stars=4, 2027-01-01→2027-12-31');
+  // contract = BESTPRICE
+  await page.check('input[name="contract"][value="BESTPRICE"]').catch(e => console.warn('    ⚠ Could not set contract:', e.message));
+  console.log('    ✓ Form fields set: rooms=5, type=dbl, board=breakfast, stars=4, contract=BESTPRICE, 2027-01-01→2027-12-31');
 
   let selectedCount = 0;
   for (const hotelName of batch.hotels) {
