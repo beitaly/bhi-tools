@@ -602,21 +602,12 @@ async function runBatch(page, batch, downloadDir) {
   }
 
   // ── Step 3: submit and wait for a *new* XLS on status.php
+  // The portal submits via AJAX (page does NOT navigate after clicking).
+  // Just click and wait 10s for the POST to complete, then go straight to polling.
   console.log('    → Clicking "Schedule search by year"…');
   await page.click('button:has-text("Schedule search by year"), input[value*="Schedule search by year"]');
-
-  // The form submission takes us to (or reloads to) status.php
-  await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 })
-    .catch(() => page.waitForTimeout(5000));
-
-  if (!page.url().includes('status.php')) {
-    console.log('    → Navigating to status.php…');
-    const statusBtn = page.locator('button:has-text("Search status"), a:has-text("Search status"), a[href*="status"]').first();
-    await statusBtn.click({ timeout: 10000 }).catch(async () => {
-      await page.goto(`${BASE_URL}/status.php`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    });
-    await page.waitForTimeout(3000);
-  }
+  console.log('    → Waiting 10s for form POST to complete…');
+  await page.waitForTimeout(10000);
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
   // This ensures we download the result of THIS search, not a previous one.
