@@ -620,20 +620,34 @@ async function runBatch(page, batch, downloadDir) {
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
   // This ensures we download the result of THIS search, not a previous one.
+  // The portal takes ~2.5 hours to process, so we reload status.php every 30s
+  // rather than relying on the page to auto-update, with a 4-hour total timeout.
   console.log('    → Waiting for new XLS download link on status page…');
-  await page.waitForFunction(
-    (prev) => {
-      const link = document.querySelector('a[href$=".xls"], a[href$=".xlsx"]');
-      if (!link) return false;
-      const href = link.getAttribute('href');
-      // Accept any link when there was no previous one, or when the href has changed
-      return prev === null ? !!href : href !== prev;
-    },
-    previousXlsHref,
-    { timeout: 900000, polling: 3000 }
-  );
+  const POLL_INTERVAL_MS = 30000;   // reload status.php every 30 seconds
+  const POLL_TIMEOUT_MS  = 14400000; // 4 hours total timeout
+  const pollStart = Date.now();
+  let newXlsHref = null;
+  while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
+    await page.goto(`${BASE_URL}/status.php`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const link = page.locator('a[href$=".xls"], a[href$=".xlsx"]').first();
+    if (await link.count() > 0) {
+      const href = await link.getAttribute('href').catch(() => null);
+      if (href && href !== previousXlsHref) {
+        newXlsHref = href;
+        console.log(`    ✓ XLS found: ${href}`);
+        break;
+      }
+    }
+    const elapsed = Math.round((Date.now() - pollStart) / 60000);
+    console.log(`    ⏳ No new XLS yet (${elapsed}m elapsed) — checking again in 30s…`);
+    await page.waitForTimeout(POLL_INTERVAL_MS);
+  }
+  if (!newXlsHref) {
+    throw new Error(`Timeout waiting for new XLS after ${POLL_TIMEOUT_MS / 60000} minutes`);
+  }
 
-  const downloadLink = page.locator('a[href$=".xls"], a[href$=".xlsx"]').first();
+  // We're already on status.php (last reload in the poll loop) with the new XLS visible.
+  const downloadLink = page.locator(`a[href="${newXlsHref}"]`).first();
 
   const date = new Date().toISOString().slice(0, 10);
   const safeName = batch.label.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
