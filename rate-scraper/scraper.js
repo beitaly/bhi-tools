@@ -637,7 +637,7 @@ async function runBatch(page, batch, downloadDir) {
 
   // ── Build POST body from ALL selects (not just inside form) + native fields ─
   console.log('    → Collecting form state and submitting via XMLHttpRequest…');
-  const fetchResult = await page.evaluate(() => new Promise((resolve) => {
+  const fetchResult = await page.evaluate(async () => {
     // Gather ALL selects anywhere in the document
     const params = new URLSearchParams();
 
@@ -678,18 +678,18 @@ async function runBatch(page, batch, downloadDir) {
       if (resp.type !== 'opaqueredirect') {
         responsePreview = await resp.text().catch(() => '').then(t => t.substring(0, 300));
       }
-      resolve({
+      return {
         status: resp.status,
         type: resp.type,
         url: resp.url,
         fields: fieldsStr,
         responsePreview,
         note: resp.type === 'opaqueredirect' ? '302 redirect intercepted — portal accepted submission' : '',
-      });
+      };
     } catch (e) {
-      resolve({ error: e.message, fields: fieldsStr });
+      return { error: e.message, fields: fieldsStr };
     }
-  }));
+  });
   console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
 
   if (fetchResult.type === 'opaqueredirect' || fetchResult.status === 0) {
