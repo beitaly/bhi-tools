@@ -615,6 +615,69 @@ async function runBatch(page, batch, downloadDir) {
     return null;
   }
 
+  // ── Step 2c: After Select2 interactions, force the chosen values back into
+  // the underlying <select> elements so our fetch() POST body picks them up.
+  // Select2 stores its selected data in jQuery's .data() on the <select> element,
+  // accessible as $(el).select2('data'). We read the Select2 UI tags (.select2-selection__choice)
+  // which carry data-value attributes, and also try the jQuery data model directly.
+  await page.evaluate(() => {
+    // Helper: sync Select2 chosen items back to the native <select>
+    function syncSelect2ToNative(selectEl) {
+      if (!selectEl) return;
+      // Try jQuery Select2 data model first
+      try {
+        if (window.jQuery) {
+          const $sel = window.jQuery(selectEl);
+          const data = $sel.select2('data');
+          if (data && data.length > 0) {
+            // Deselect all first
+            for (const opt of selectEl.options) opt.selected = false;
+            // Select matching options
+            for (const item of data) {
+              const id = String(item.id);
+              for (const opt of selectEl.options) {
+                if (opt.value === id) { opt.selected = true; break; }
+              }
+            }
+            console.log(`Synced ${selectEl.name} via jQuery Select2 data:`, data.map(d => d.id).join(','));
+            return;
+          }
+        }
+      } catch(e) { console.warn('jQuery Select2 sync failed:', e.message); }
+
+      // Fallback: read the .select2-selection__choice elements which carry data-value
+      const container = selectEl.closest('.select2') || selectEl.parentElement;
+      if (container) {
+        const choices = container.querySelectorAll('.select2-selection__choice[data-value]');
+        if (choices.length > 0) {
+          for (const opt of selectEl.options) opt.selected = false;
+          for (const choice of choices) {
+            const val = choice.getAttribute('data-value');
+            for (const opt of selectEl.options) {
+              if (opt.value === val) { opt.selected = true; break; }
+            }
+          }
+          console.log(`Synced ${selectEl.name} via DOM choices:`, [...choices].map(c => c.getAttribute('data-value')).join(','));
+          return;
+        }
+      }
+      console.warn(`Could not sync ${selectEl.name} — no jQuery and no data-value attributes found`);
+    }
+
+    // Sync city select (cityNames[])
+    const citySelect = document.querySelector('select[name="cityNames[]"]');
+    if (citySelect) syncSelect2ToNative(citySelect);
+
+    // Sync hotel select (hotels[])
+    const hotelSelect = document.querySelector('select[name="hotels[]"]');
+    if (hotelSelect) syncSelect2ToNative(hotelSelect);
+
+    // Sync treatments select
+    const treatSelect = document.querySelector('select[name="treatments[]"]');
+    if (treatSelect) syncSelect2ToNative(treatSelect);
+  });
+  console.log('    ✓ Select2 values synced back to native <select> elements');
+
   // ── Step 3: submit and wait for a *new* XLS on status.php
   // The portal uses JS that calls event.preventDefault() on the form submit, so a
   // normal button click fires no network request.  We POST manually via fetch()
