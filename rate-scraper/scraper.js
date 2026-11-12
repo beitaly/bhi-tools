@@ -609,103 +609,79 @@ async function runBatch(page, batch, downloadDir) {
   // their own JS state and do NOT update the underlying <select> elements in a way
   // that FormData can read.  Instead we read every <select> for its selectedOptions and
   // combine them with the fixed fields we set directly on native inputs.
-  console.log('    → Collecting form state and submitting via in-page fetch…');
-  const fetchResult = await page.evaluate(async () => {
-    const form = document.querySelector('form');
-    if (!form) return { error: 'No form found' };
+  // ── DOM diagnostic: inspect all selects and form structure ──────────────────
+  console.log('    → Inspecting DOM structure before submit…');
+  const domDiag = await page.evaluate(() => {
+    // All selects anywhere in document
+    const allSelects = [...document.querySelectorAll('select')].map(s => ({
+      name: s.name, id: s.id,
+      inForm: !!s.closest('form'),
+      selectedValues: [...s.selectedOptions].map(o => o.value),
+      totalOptions: s.options.length,
+    }));
+    // All forms
+    const allForms = [...document.querySelectorAll('form')].map(f => ({
+      action: f.action, id: f.id,
+      inputNames: [...f.querySelectorAll('input,select,textarea')].map(el => el.name || el.id),
+    }));
+    // Select2 chosen items (the visible tags)
+    const s2items = [...document.querySelectorAll('.select2-selection__choice')].map(el => el.getAttribute('title') || el.textContent.trim());
+    // Find the actual JS submit handler source if possible
+    const btn = document.querySelector('button[name="action"][value="schedule-search"], button[type="submit"], input[type="submit"]');
+    return { allSelects, allForms, s2items, btnFound: btn ? btn.outerHTML.substring(0, 200) : null, url: window.location.href };
+  });
+  console.log(`    🔍 DOM diag: ${JSON.stringify(domDiag, null, 2)}`);
 
-    // Build URLSearchParams manually — works with application/x-www-form-urlencoded
+  // ── Build POST body from ALL selects (not just inside form) + native fields ─
+  console.log('    → Collecting form state and submitting via XMLHttpRequest…');
+  const fetchResult = await page.evaluate(() => new Promise((resolve) => {
+    // Gather ALL selects anywhere in the document
     const params = new URLSearchParams();
 
-    // ── fixed hidden / native fields ──────────────────────────────────────────
-    // logout hidden input
-    const logoutEl = form.querySelector('input[name="logout"]');
-    if (logoutEl) params.append('logout', logoutEl.value);
-
-    // rooms[0][count]
-    const roomCount = form.querySelector('input[name="rooms[0][count]"]');
-    if (roomCount) params.append('rooms[0][count]', roomCount.value);
-
-    // rooms[0][type]  — may be a hidden <select> updated by Select2 (nth 2)
-    // We set it via JS earlier; read the value back
-    const roomType = form.querySelector('select[name="rooms[0][type]"]');
-    if (roomType) {
-      for (const opt of roomType.selectedOptions) params.append('rooms[0][type]', opt.value);
+    // All named selects
+    for (const sel of document.querySelectorAll('select[name]')) {
+      for (const opt of sel.selectedOptions) {
+        params.append(sel.name, opt.value);
+      }
     }
 
-    // checkin / checkout
-    const checkin = form.querySelector('input[name="checkin"]');
-    if (checkin) params.append('checkin', checkin.value);
-    const checkout = form.querySelector('input[name="checkout"]');
-    if (checkout) params.append('checkout', checkout.value);
-
-    // stars[] — checkboxes
-    for (const cb of form.querySelectorAll('input[name="stars[]"]:checked')) {
-      params.append('stars[]', cb.value);
+    // All checked checkboxes/radios
+    for (const cb of document.querySelectorAll('input[type="checkbox"]:checked, input[type="radio"]:checked')) {
+      if (cb.name) params.append(cb.name, cb.value);
     }
 
-    // contract — radio
-    const contractRadio = form.querySelector('input[name="contract"]:checked');
-    if (contractRadio) params.append('contract', contractRadio.value);
-
-    // ── Select2 multi-select fields ───────────────────────────────────────────
-    // cityNames[] — the first <select> managed by Select2
-    const citySelect = form.querySelector('select[name="cityNames[]"]');
-    if (citySelect) {
-      for (const opt of citySelect.selectedOptions) params.append('cityNames[]', opt.value);
+    // All text/number/date/hidden inputs (excluding submit)
+    for (const inp of document.querySelectorAll('input:not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="button"])')) {
+      if (inp.name && inp.value) params.append(inp.name, inp.value);
     }
 
-    // hotels[] — the second <select> managed by Select2
-    const hotelSelect = form.querySelector('select[name="hotels[]"]');
-    if (hotelSelect) {
-      for (const opt of hotelSelect.selectedOptions) params.append('hotels[]', opt.value);
-    }
-
-    // treatments[] — the third <select> managed by Select2
-    const treatSelect = form.querySelector('select[name="treatments[]"]');
-    if (treatSelect) {
-      for (const opt of treatSelect.selectedOptions) params.append('treatments[]', opt.value);
-    }
-
-    // ── submit button value ───────────────────────────────────────────────────
-    params.append('action', 'schedule-search');
+    // Submit button value
+    params.set('action', 'schedule-search');
 
     const fieldsStr = params.toString();
-    console.log('Fields being POSTed:', fieldsStr);
 
-    // Snapshot all <select> selectedOptions for diagnostics
-    const selectDiag = {};
-    for (const sel of form.querySelectorAll('select')) {
-      const name = sel.name || sel.id || '(unnamed)';
-      selectDiag[name] = [...sel.options].map(o => ({ value: o.value, text: o.text, selected: o.selected }));
-    }
-
-    try {
-      const resp = await fetch(form.action || window.location.href, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: fieldsStr,
-        credentials: 'include',
-        redirect: 'follow',
-      });
-      const text = await resp.text();
-      return {
-        status: resp.status,
-        url: resp.url,
-        formAction: form.action,
-        fields: fieldsStr,
-        selectDiag,
-        responsePreview: text.substring(0, 500),
-      };
-    } catch (e) {
-      return { error: e.message, fields: fieldsStr, selectDiag };
-    }
-  });
+    // Use XMLHttpRequest — sometimes handles session cookies better than fetch in Playwright
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.location.href, true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.withCredentials = true;
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        resolve({
+          status: xhr.status,
+          url: xhr.responseURL,
+          fields: fieldsStr,
+          responsePreview: xhr.responseText.substring(0, 500),
+        });
+      }
+    };
+    xhr.send(fieldsStr);
+  }));
   console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
 
   // If the response is the login page, the session expired — log a clear error
   if (fetchResult.responsePreview && fetchResult.responsePreview.includes('<title>Login</title>')) {
-    console.error('    ✗ Portal returned login page — session may have expired during form fill');
+    console.error('    ✗ Portal returned login page — session expired or cookies not sent');
   } else if (fetchResult.status === 200 || fetchResult.status === 302) {
     console.log('    ✓ POST accepted by portal');
   }
