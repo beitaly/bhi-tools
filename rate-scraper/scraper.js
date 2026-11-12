@@ -486,10 +486,21 @@ async function runBatch(page, batch, downloadDir) {
   await page.evaluate(() => {
     const sel = document.querySelector('select[name="rooms[0][type]"]');
     if (sel) {
-      // Set via option.selected (more reliable than .value assignment on Select2-managed elements)
+      // Log available options for debugging
+      console.log('rooms[0][type] options:', [...sel.options].map(o => `${JSON.stringify(o.value)}=${o.text}`).join(', '));
+      // Try direct value assignment first
+      sel.value = 'dbl';
+      // Also iterate and force-select any option whose value or text contains 'dbl'
+      let found = false;
       for (const opt of sel.options) {
-        opt.selected = (opt.value === 'dbl');
+        if (opt.value === 'dbl' || opt.value.toLowerCase().includes('dbl') || opt.text.toLowerCase().includes('dbl')) {
+          opt.selected = true;
+          found = true;
+        } else {
+          opt.selected = false;
+        }
       }
+      console.log('rooms[0][type] dbl found:', found, 'current value:', sel.value);
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }).catch(e => console.warn('    ⚠ Could not set room type via JS:', e.message));
@@ -657,6 +668,9 @@ async function runBatch(page, batch, downloadDir) {
     for (const inp of document.querySelectorAll('input:not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="button"])')) {
       if (inp.name && inp.value) params.append(inp.name, inp.value);
     }
+
+    // rooms[0][type] — force 'dbl' regardless of select state (Select2 doesn't sync back reliably)
+    params.set('rooms[0][type]', 'dbl');
 
     // Submit button value
     params.set('action', 'schedule-search');
