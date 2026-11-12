@@ -486,7 +486,10 @@ async function runBatch(page, batch, downloadDir) {
   await page.evaluate(() => {
     const sel = document.querySelector('select[name="rooms[0][type]"]');
     if (sel) {
-      sel.value = 'dbl';
+      // Set via option.selected (more reliable than .value assignment on Select2-managed elements)
+      for (const opt of sel.options) {
+        opt.selected = (opt.value === 'dbl');
+      }
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }).catch(e => console.warn('    ⚠ Could not set room type via JS:', e.message));
@@ -660,30 +663,41 @@ async function runBatch(page, batch, downloadDir) {
 
     const fieldsStr = params.toString();
 
-    // Use XMLHttpRequest — sometimes handles session cookies better than fetch in Playwright
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', window.location.href, true);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.withCredentials = true;
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) {
-        resolve({
-          status: xhr.status,
-          url: xhr.responseURL,
-          fields: fieldsStr,
-          responsePreview: xhr.responseText.substring(0, 500),
-        });
+    // Use fetch with redirect:'manual' so a 302 is captured as opaqueredirect (type='opaqueredirect', status=0)
+    // rather than being followed to the login page. A 302 from the portal means it accepted the submission.
+    try {
+      const resp = await fetch(window.location.href, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: fieldsStr,
+        credentials: 'include',
+        redirect: 'manual',
+      });
+      let responsePreview = '';
+      // For opaqueredirect (status=0), we can't read the body — but that's a success signal
+      if (resp.type !== 'opaqueredirect') {
+        responsePreview = await resp.text().catch(() => '').then(t => t.substring(0, 300));
       }
-    };
-    xhr.send(fieldsStr);
+      resolve({
+        status: resp.status,
+        type: resp.type,
+        url: resp.url,
+        fields: fieldsStr,
+        responsePreview,
+        note: resp.type === 'opaqueredirect' ? '302 redirect intercepted — portal accepted submission' : '',
+      });
+    } catch (e) {
+      resolve({ error: e.message, fields: fieldsStr });
+    }
   }));
   console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
 
-  // If the response is the login page, the session expired — log a clear error
-  if (fetchResult.responsePreview && fetchResult.responsePreview.includes('<title>Login</title>')) {
-    console.error('    ✗ Portal returned login page — session expired or cookies not sent');
-  } else if (fetchResult.status === 200 || fetchResult.status === 302) {
-    console.log('    ✓ POST accepted by portal');
+  if (fetchResult.type === 'opaqueredirect' || fetchResult.status === 0) {
+    console.log('    ✓ Portal returned 302 redirect — submission accepted');
+  } else if (fetchResult.responsePreview && fetchResult.responsePreview.includes('<title>Login</title>')) {
+    console.error('    ✗ Portal returned login page — session not carried');
+  } else if (fetchResult.status === 200) {
+    console.log('    ✓ POST accepted by portal (200)');
   }
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
