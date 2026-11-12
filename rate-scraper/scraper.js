@@ -1112,14 +1112,17 @@ app.get('/debug/html-result', (req, res) => {
   if (!fs.existsSync(DEBUG_HTML_FILE)) return res.json({ status: 'not ready' });
   const html = fs.readFileSync(DEBUG_HTML_FILE, 'utf8');
   if (html.startsWith('ERROR:')) return res.json({ error: html });
-  // Extract just the form section and button values
   const btnMatches = [...html.matchAll(/<button[^>]*name="action"[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/button>/gi)];
   const formMatch = html.match(/<form[^>]*id="search"[\s\S]*?<\/form>/i) || html.match(/<form[\s\S]{0,200}schedule-search[\s\S]*?<\/form>/i);
   const roomTypeMatch = html.match(/<select[^>]*name="rooms\[0\]\[type\]"[\s\S]*?<\/select>/i);
+  // Extract all inline <script> blocks to find the submit handler
+  const scriptMatches = [...html.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/gi)];
+  const submitScript = scriptMatches.map(m => m[1]).find(s => s.includes('schedule-search') || s.includes('preventDefault') || s.includes('submit'));
   res.send(
     'BUTTONS WITH name=action:\n' + btnMatches.map(m => `  value="${m[1]}" text="${m[2].trim().substring(0,50)}"`).join('\n') +
     '\n\nROOM TYPE SELECT:\n' + (roomTypeMatch ? roomTypeMatch[0].substring(0, 500) : 'not found') +
-    '\n\nSEARCH FORM (first 2000 chars):\n' + (formMatch ? formMatch[0].substring(0, 2000) : 'not found by id=search') +
+    '\n\nSEARCH FORM (first 3000 chars):\n' + (formMatch ? formMatch[0].substring(0, 3000) : 'not found by id=search') +
+    '\n\nSUBMIT HANDLER SCRIPT:\n' + (submitScript ? submitScript.substring(0, 3000) : 'not found in inline scripts') +
     '\n\nHTML LENGTH: ' + html.length
   );
 });
