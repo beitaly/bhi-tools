@@ -969,6 +969,99 @@ app.get('/debug/result', (req, res) => {
   res.json(data);
 });
 
+// GET /debug/submit  → logs in, selects FIRENZE, and captures the actual POST that the portal JS fires
+const DEBUG_SUBMIT_FILE = path.join(DOWNLOAD_DIR, '_debug_submit.json');
+app.get('/debug/submit', (req, res) => {
+  res.json({ status: 'started', poll: '/debug/submit-result', note: 'check in ~120 seconds' });
+  (async () => {
+    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    try {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+
+      // Intercept outgoing requests to capture the actual POST body
+      const capturedRequests = [];
+      page.on('request', req => {
+        if (req.method() === 'POST') {
+          capturedRequests.push({ url: req.url(), postData: req.postData(), headers: req.headers() });
+        }
+      });
+
+      await login(page);
+      await page.waitForTimeout(3000);
+
+      // Capture full search form HTML (second form)
+      const searchFormHtml = await page.evaluate(() => {
+        const forms = document.querySelectorAll('form');
+        return [...forms].map((f, i) => ({ index: i, id: f.id, html: f.outerHTML.substring(0, 3000) }));
+      });
+
+      // Capture all submit button values
+      const buttons = await page.evaluate(() =>
+        [...document.querySelectorAll('button[type="submit"], input[type="submit"]')].map(b => ({
+          name: b.name, value: b.value, text: b.textContent.trim(), outerHTML: b.outerHTML.substring(0, 200)
+        }))
+      );
+
+      // Capture rooms[0][type] options
+      const roomTypeOptions = await page.evaluate(() => {
+        const sel = document.querySelector('select[name="rooms[0][type]"]');
+        return sel ? [...sel.options].map(o => ({ value: o.value, text: o.text, selected: o.selected })) : [];
+      });
+
+      // Try selecting FIRENZE in city select
+      const citySearchBox = page.locator('textarea.select2-search__field[aria-label="Search"]').nth(0);
+      await citySearchBox.click();
+      await citySearchBox.type('FIRE', { delay: 80 });
+      await page.waitForTimeout(2000);
+      const opts = await page.locator('.select2-results__option').all();
+      const optTexts = [];
+      for (const o of opts) optTexts.push((await o.textContent() || '').trim());
+      if (opts.length > 0) await opts[0].click();
+      await page.waitForTimeout(500);
+
+      // Check what's now in the city select's selectedOptions
+      const citySelectState = await page.evaluate(() => {
+        const sel = document.querySelector('select[name="cityNames[]"]');
+        return sel ? {
+          selectedValues: [...sel.selectedOptions].map(o => o.value),
+          totalOptions: sel.options.length,
+          // Also check jQuery Select2 data
+          jqueryData: window.jQuery ? (() => { try { return window.jQuery(sel).select2('data').map(d => ({ id: d.id, text: d.text })); } catch(e) { return 'error: ' + e.message; } })() : 'no jQuery',
+        } : 'select not found';
+      });
+
+      // Now click the "Schedule search by year" button to trigger the portal's own JS POST
+      // and capture what it sends
+      const schedBtn = page.locator('button[type="submit"]:has-text("Schedule")');
+      if (await schedBtn.count() > 0) {
+        await schedBtn.click();
+        await page.waitForTimeout(2000);
+      }
+
+      fs.writeFileSync(DEBUG_SUBMIT_FILE, JSON.stringify({
+        ts: new Date().toISOString(),
+        searchFormHtml,
+        buttons,
+        roomTypeOptions,
+        cityDropdownOptions: optTexts,
+        citySelectState,
+        capturedPOSTs: capturedRequests,
+      }, null, 2));
+      console.log('✓ debug/submit saved');
+    } catch(e) {
+      fs.writeFileSync(DEBUG_SUBMIT_FILE, JSON.stringify({ error: e.message }));
+    } finally {
+      await browser.close();
+    }
+  })();
+});
+
+app.get('/debug/submit-result', (req, res) => {
+  if (!fs.existsSync(DEBUG_SUBMIT_FILE)) return res.json({ status: 'not ready' });
+  res.json(JSON.parse(fs.readFileSync(DEBUG_SUBMIT_FILE, 'utf8')));
+});
+
 // Dump every option from the hotels-select dropdown as plain text (one per line)
 app.get('/debug/hotels', (req, res) => {
   res.json({ status: 'started', poll: '/debug/hotels-result' });
