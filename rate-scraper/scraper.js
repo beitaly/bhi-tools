@@ -616,67 +616,81 @@ async function runBatch(page, batch, downloadDir) {
   }
 
   // ── Step 2c: After Select2 interactions, force the chosen values back into
-  // the underlying <select> elements so our fetch() POST body picks them up.
-  // Select2 stores its selected data in jQuery's .data() on the <select> element,
-  // accessible as $(el).select2('data'). We read the Select2 UI tags (.select2-selection__choice)
-  // which carry data-value attributes, and also try the jQuery data model directly.
-  await page.evaluate(() => {
+  // the underlying <select> elements so the button-click POST body picks them up.
+  // The city <select> starts with 0 options (AJAX-loaded lazily by Select2), so we
+  // must CREATE new <option> elements for each selected value rather than just marking
+  // existing ones as selected.
+  const syncResult = await page.evaluate(() => {
     // Helper: sync Select2 chosen items back to the native <select>
+    // Creates <option> elements if they don't already exist (needed for AJAX selects).
     function syncSelect2ToNative(selectEl) {
-      if (!selectEl) return;
+      if (!selectEl) return { name: 'null', synced: [] };
+      let values = [];
+
       // Try jQuery Select2 data model first
       try {
         if (window.jQuery) {
           const $sel = window.jQuery(selectEl);
           const data = $sel.select2('data');
           if (data && data.length > 0) {
-            // Deselect all first
-            for (const opt of selectEl.options) opt.selected = false;
-            // Select matching options
-            for (const item of data) {
-              const id = String(item.id);
-              for (const opt of selectEl.options) {
-                if (opt.value === id) { opt.selected = true; break; }
-              }
-            }
-            console.log(`Synced ${selectEl.name} via jQuery Select2 data:`, data.map(d => d.id).join(','));
-            return;
+            values = data.map(d => ({ id: String(d.id), text: String(d.text || d.id) }));
           }
         }
-      } catch(e) { console.warn('jQuery Select2 sync failed:', e.message); }
+      } catch(e) { console.warn('jQuery Select2 data() failed:', e.message); }
 
-      // Fallback: read the .select2-selection__choice elements which carry data-value
-      const container = selectEl.closest('.select2') || selectEl.parentElement;
-      if (container) {
-        const choices = container.querySelectorAll('.select2-selection__choice[data-value]');
-        if (choices.length > 0) {
-          for (const opt of selectEl.options) opt.selected = false;
-          for (const choice of choices) {
-            const val = choice.getAttribute('data-value');
-            for (const opt of selectEl.options) {
-              if (opt.value === val) { opt.selected = true; break; }
-            }
-          }
-          console.log(`Synced ${selectEl.name} via DOM choices:`, [...choices].map(c => c.getAttribute('data-value')).join(','));
-          return;
+      // Fallback: read the .select2-selection__choice elements (carry title=value)
+      if (values.length === 0) {
+        const container = selectEl.closest('.select2-container') ||
+                          selectEl.parentElement.querySelector('.select2-selection--multiple');
+        const choiceEls = document.querySelectorAll(
+          `.select2-selection__choice[data-value], .select2-selection__choice[title]`
+        );
+        for (const ch of choiceEls) {
+          const v = ch.getAttribute('data-value') || ch.getAttribute('title') || ch.textContent.trim();
+          if (v) values.push({ id: v, text: v });
         }
       }
-      console.warn(`Could not sync ${selectEl.name} — no jQuery and no data-value attributes found`);
+
+      if (values.length === 0) {
+        console.warn(`No Select2 values found for ${selectEl.name}`);
+        return { name: selectEl.name, synced: [] };
+      }
+
+      // Deselect all existing options
+      for (const opt of selectEl.options) opt.selected = false;
+
+      for (const item of values) {
+        // Find or create the option
+        let opt = [...selectEl.options].find(o => o.value === item.id);
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = item.id;
+          opt.text = item.text;
+          selectEl.appendChild(opt);
+        }
+        opt.selected = true;
+      }
+
+      console.log(`Synced ${selectEl.name}:`, values.map(v => v.id).join(' | '));
+      return { name: selectEl.name, synced: values.map(v => v.id) };
     }
 
+    const results = [];
     // Sync city select (cityNames[])
     const citySelect = document.querySelector('select[name="cityNames[]"]');
-    if (citySelect) syncSelect2ToNative(citySelect);
+    results.push(syncSelect2ToNative(citySelect));
 
     // Sync hotel select (hotels[])
     const hotelSelect = document.querySelector('select[name="hotels[]"]');
-    if (hotelSelect) syncSelect2ToNative(hotelSelect);
+    results.push(syncSelect2ToNative(hotelSelect));
 
     // Sync treatments select
     const treatSelect = document.querySelector('select[name="treatments[]"]');
-    if (treatSelect) syncSelect2ToNative(treatSelect);
+    results.push(syncSelect2ToNative(treatSelect));
+
+    return results;
   });
-  console.log('    ✓ Select2 values synced back to native <select> elements');
+  console.log('    ✓ Select2 sync results:', JSON.stringify(syncResult));
 
   // ── Step 3: submit and wait for a *new* XLS on status.php
   // The portal uses JS that calls event.preventDefault() on the form submit, so a
