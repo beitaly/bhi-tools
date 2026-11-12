@@ -36,9 +36,9 @@ const DRIVE_FOLDERS = {
 // VP 2027 output folder IDs (proposal sheets + stop sale reports land here)
 const VP_FOLDERS = {
   laghi:    process.env.VP_2027_FOLDER_LAGHI    || '1KQNpmHcVW0nTbcztgUophIM100PvlLL1',
-  toscana:  process.env.VP_2027_FOLDER_TOSCANA  || '',
-  sardegna: process.env.VP_2027_FOLDER_SARDEGNA || '',
-  liguria:  process.env.VP_2027_FOLDER_LIGURIA  || '',
+  toscana:  process.env.VP_2027_FOLDER_TOSCANA  || '10b7Ke_7sGLz0yjTScOtrQzGm2_iscaRh',
+  sardegna: process.env.VP_2027_FOLDER_SARDEGNA || '1xvAkRemu8x0ecTGPwWMPJPGhZT6KWfUV',
+  liguria:  process.env.VP_2027_FOLDER_LIGURIA  || '1BRuvBcK_uvDtl-gRPL4pAn7h7gKJYAqS',
   puglia:   process.env.VP_2027_FOLDER_PUGLIA   || '',
 };
 
