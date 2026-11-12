@@ -735,9 +735,33 @@ async function runBatch(page, batch, downloadDir) {
       if (inp.name && inp.value) params.append(inp.name, inp.value);
     }
 
-    // Inject city or hotel names directly — option values ARE the city/hotel name strings
+    // Inject city values by matching against actual <select> option values
+    // Portal option values are "CITYNAME - PROVINCE" (e.g. "FIRENZE - FIRENZE")
+    // so we find options whose value starts with our city name
     if (isCityBatch) {
-      for (const city of cityItems) params.append('cityNames[]', city);
+      const citySel = document.querySelector('select[name="cityNames[]"]');
+      if (citySel) {
+        for (const city of cityItems) {
+          const cityUpper = city.toUpperCase();
+          let matched = false;
+          for (const opt of citySel.options) {
+            const optVal = opt.value.toUpperCase();
+            // Match: option starts with "CITY - " or equals city exactly
+            if (optVal === cityUpper || optVal.startsWith(cityUpper + ' - ') || optVal.startsWith(cityUpper + '-')) {
+              params.append('cityNames[]', opt.value);
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) {
+            // Fallback: inject the city name as-is
+            params.append('cityNames[]', city);
+          }
+        }
+      } else {
+        // No select found — inject directly
+        for (const city of cityItems) params.append('cityNames[]', city);
+      }
     } else {
       // For hotel batches: find option values matching hotel names
       const hotelSel = document.querySelector('select[name="hotels[]"]');
