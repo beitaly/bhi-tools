@@ -639,11 +639,14 @@ async function runBatch(page, batch, downloadDir) {
       } catch(e) { console.warn('jQuery Select2 data() failed:', e.message); }
 
       // Fallback: read the .select2-selection__choice elements (carry title=value)
+      // IMPORTANT: scope to this select's own container, not document-wide,
+      // otherwise choices from other widgets (e.g. treatments) bleed in.
       if (values.length === 0) {
-        const container = selectEl.closest('.select2-container') ||
-                          selectEl.parentElement.querySelector('.select2-selection--multiple');
-        const choiceEls = document.querySelectorAll(
-          `.select2-selection__choice[data-value], .select2-selection__choice[title]`
+        const container = selectEl.nextElementSibling || // Select2 injects sibling span
+                          selectEl.closest('.select2-container');
+        const scope = container || selectEl.parentElement;
+        const choiceEls = scope.querySelectorAll(
+          '.select2-selection__choice[data-value], .select2-selection__choice[title]'
         );
         for (const ch of choiceEls) {
           const v = ch.getAttribute('data-value') || ch.getAttribute('title') || ch.textContent.trim();
