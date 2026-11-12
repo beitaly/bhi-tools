@@ -717,8 +717,9 @@ async function runBatch(page, batch, downloadDir) {
     // Gather ALL selects anywhere in the document
     const params = new URLSearchParams();
 
-    // All named selects EXCEPT cityNames[] and hotels[] — we inject those manually below
-    for (const sel of document.querySelectorAll('select[name]')) {
+    // All named selects from the search form EXCEPT cityNames[] and hotels[] — we inject those manually below
+    const searchFormSel = document.querySelector('form#search');
+    for (const sel of (searchFormSel || document).querySelectorAll('select[name]')) {
       if (sel.name === 'cityNames[]' || sel.name === 'hotels[]') continue;
       for (const opt of sel.selectedOptions) {
         params.append(sel.name, opt.value);
@@ -730,9 +731,11 @@ async function runBatch(page, batch, downloadDir) {
       if (cb.name) params.append(cb.name, cb.value);
     }
 
-    // All text/number/date/hidden inputs (excluding submit)
-    for (const inp of document.querySelectorAll('input:not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="button"])')) {
-      if (inp.name && inp.value) params.append(inp.name, inp.value);
+    // All text/number/date/hidden inputs from the SEARCH form only (not the logout form)
+    const searchForm = document.querySelector('form#search');
+    const inputScope = searchForm || document;
+    for (const inp of inputScope.querySelectorAll('input:not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="button"])')) {
+      if (inp.name && inp.value && inp.name !== 'logout') params.append(inp.name, inp.value);
     }
 
     // Inject city values by matching against actual <select> option values
