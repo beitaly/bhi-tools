@@ -1062,6 +1062,45 @@ app.get('/debug/submit-result', (req, res) => {
   res.json(JSON.parse(fs.readFileSync(DEBUG_SUBMIT_FILE, 'utf8')));
 });
 
+// GET /debug/html → login and return raw page HTML (no interactions)
+const DEBUG_HTML_FILE = path.join(DOWNLOAD_DIR, '_debug_html.txt');
+app.get('/debug/html', (req, res) => {
+  res.json({ status: 'started', poll: '/debug/html-result', note: 'check in ~60 seconds' });
+  (async () => {
+    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    try {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await login(page);
+      await page.waitForTimeout(3000);
+      const html = await page.content();
+      fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+      fs.writeFileSync(DEBUG_HTML_FILE, html);
+      console.log('✓ debug/html saved, length:', html.length);
+    } catch(e) {
+      fs.writeFileSync(DEBUG_HTML_FILE, 'ERROR: ' + e.message);
+    } finally {
+      await browser.close();
+    }
+  })();
+});
+
+app.get('/debug/html-result', (req, res) => {
+  if (!fs.existsSync(DEBUG_HTML_FILE)) return res.json({ status: 'not ready' });
+  const html = fs.readFileSync(DEBUG_HTML_FILE, 'utf8');
+  if (html.startsWith('ERROR:')) return res.json({ error: html });
+  // Extract just the form section and button values
+  const btnMatches = [...html.matchAll(/<button[^>]*name="action"[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/button>/gi)];
+  const formMatch = html.match(/<form[^>]*id="search"[\s\S]*?<\/form>/i) || html.match(/<form[\s\S]{0,200}schedule-search[\s\S]*?<\/form>/i);
+  const roomTypeMatch = html.match(/<select[^>]*name="rooms\[0\]\[type\]"[\s\S]*?<\/select>/i);
+  res.send(
+    'BUTTONS WITH name=action:\n' + btnMatches.map(m => `  value="${m[1]}" text="${m[2].trim().substring(0,50)}"`).join('\n') +
+    '\n\nROOM TYPE SELECT:\n' + (roomTypeMatch ? roomTypeMatch[0].substring(0, 500) : 'not found') +
+    '\n\nSEARCH FORM (first 2000 chars):\n' + (formMatch ? formMatch[0].substring(0, 2000) : 'not found by id=search') +
+    '\n\nHTML LENGTH: ' + html.length
+  );
+});
+
 // Dump every option from the hotels-select dropdown as plain text (one per line)
 app.get('/debug/hotels', (req, res) => {
   res.json({ status: 'started', poll: '/debug/hotels-result' });
