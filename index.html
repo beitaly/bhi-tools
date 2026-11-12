@@ -471,10 +471,13 @@
     </div>
     <div class="endpoints">
       <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run</span><span class="ep-desc">All 4 destinations</span></div>
-      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/laghi</span><span class="ep-desc">Lakes only</span></div>
-      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/toscana</span><span class="ep-desc">Tuscany only</span></div>
-      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/sardegna</span><span class="ep-desc">Sardinia only</span></div>
-      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/liguria</span><span class="ep-desc">Liguria only</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/toscana</span><span class="ep-desc">Tuscany — all 6 batches</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/sardegna</span><span class="ep-desc">Sardinia — all 3 batches</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/liguria</span><span class="ep-desc">Liguria — all 3 batches</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/laghi</span><span class="ep-desc">Lakes — all 5 batches</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/laghi?from=0&amp;to=2</span><span class="ep-desc">Lakes chunk 1 (batches 0–1)</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/laghi?from=2&amp;to=4</span><span class="ep-desc">Lakes chunk 2 (batches 2–3)</span></div>
+      <div class="ep"><span class="ep-method">GET</span><span class="ep-path">/run/laghi?from=4&amp;to=5</span><span class="ep-desc">Lakes chunk 3 (batch 4)</span></div>
     </div>
     <div class="card-footer">
       <span class="card-url">bhi-tools-production.up.railway.app</span>
