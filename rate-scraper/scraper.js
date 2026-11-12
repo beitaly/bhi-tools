@@ -709,122 +709,41 @@ async function runBatch(page, batch, downloadDir) {
   });
   console.log(`    🔍 DOM diag: ${JSON.stringify(domDiag, null, 2)}`);
 
-  // ── Build POST body from ALL selects (not just inside form) + native fields ─
-  // We pass city/hotel names directly from Node (isCitySearch, items) into the evaluate
-  // so we don't depend on Select2 having synced back to the native <select>.
-  console.log('    → Collecting form state and submitting via fetch…');
-  const fetchResult = await page.evaluate(async ({ cityItems, hotelItems, isCityBatch }) => {  // eslint-disable-line
-    // Gather ALL selects anywhere in the document
-    const params = new URLSearchParams();
+  // ── Submit via Playwright button click ─────────────────────────────────────
+  // The portal uses JS event.preventDefault() and custom submit handling.
+  // Direct fetch POST returns 200 with the same page (not accepted).
+  // Clicking the actual button via Playwright triggers the proper form submission.
+  console.log('    → Clicking "Schedule search by year" button…');
 
-    // All named selects from the search form EXCEPT cityNames[] and hotels[] — we inject those manually below
-    const searchFormSel = document.querySelector('form#search');
-    for (const sel of (searchFormSel || document).querySelectorAll('select[name]')) {
-      if (sel.name === 'cityNames[]' || sel.name === 'hotels[]') continue;
-      for (const opt of sel.selectedOptions) {
-        params.append(sel.name, opt.value);
-      }
-    }
+  // Find and click the schedule-search button
+  const scheduleBtn = page.locator('button[name="action"][value="schedule-search"]');
+  const btnCount = await scheduleBtn.count();
+  console.log(`    → Schedule button count: ${btnCount}`);
 
-    // All checked checkboxes/radios
-    for (const cb of document.querySelectorAll('input[type="checkbox"]:checked, input[type="radio"]:checked')) {
-      if (cb.name) params.append(cb.name, cb.value);
-    }
+  if (btnCount === 0) {
+    throw new Error('Schedule search button not found on page');
+  }
 
-    // All text/number/date/hidden inputs from the SEARCH form only (not the logout form)
-    const searchForm = document.querySelector('form#search');
-    const inputScope = searchForm || document;
-    for (const inp of inputScope.querySelectorAll('input:not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="button"])')) {
-      if (inp.name && inp.value && inp.name !== 'logout') params.append(inp.name, inp.value);
-    }
+  // Click and wait for navigation (portal redirects on success)
+  try {
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      scheduleBtn.click(),
+    ]);
+    console.log(`    ✓ Navigation after click — URL: ${page.url()}`);
+  } catch (e) {
+    // If navigation didn't happen, check what happened
+    console.warn(`    ⚠ No navigation after click: ${e.message}`);
+    // Check if we're still on the search page (may mean it was submitted via AJAX)
+    const currentUrl = page.url();
+    console.log(`    → Current URL after click: ${currentUrl}`);
+  }
 
-    // Inject city values by matching against actual <select> option values
-    // Portal option values are "CITYNAME - PROVINCE" (e.g. "FIRENZE - FIRENZE")
-    // so we find options whose value starts with our city name
-    if (isCityBatch) {
-      const citySel = document.querySelector('select[name="cityNames[]"]');
-      if (citySel) {
-        for (const city of cityItems) {
-          const cityUpper = city.toUpperCase();
-          let matched = false;
-          for (const opt of citySel.options) {
-            const optVal = opt.value.toUpperCase();
-            // Match: option starts with "CITY - " or equals city exactly
-            if (optVal === cityUpper || optVal.startsWith(cityUpper + ' - ') || optVal.startsWith(cityUpper + '-')) {
-              params.append('cityNames[]', opt.value);
-              matched = true;
-              break;
-            }
-          }
-          if (!matched) {
-            // Fallback: inject the city name as-is
-            params.append('cityNames[]', city);
-          }
-        }
-      } else {
-        // No select found — inject directly
-        for (const city of cityItems) params.append('cityNames[]', city);
-      }
-    } else {
-      // For hotel batches: find option values matching hotel names
-      const hotelSel = document.querySelector('select[name="hotels[]"]');
-      if (hotelSel) {
-        for (const opt of hotelSel.options) {
-          const optText = opt.text.trim().toLowerCase();
-          if (hotelItems.some(h => optText.includes(h.split(' - ')[0].trim().toLowerCase()))) {
-            params.append('hotels[]', opt.value);
-          }
-        }
-      }
-      // Fallback: use hotel names directly as values
-      if (!params.has('hotels[]')) {
-        for (const hotel of hotelItems) params.append('hotels[]', hotel);
-      }
-    }
-
-    // rooms[0][type] — force DBL (portal uses uppercase)
-    params.set('rooms[0][type]', 'DBL');
-
-    // Submit button value
-    params.set('action', 'schedule-search');
-
-    const fieldsStr = params.toString();
-
-    // Use fetch with redirect:'manual' so a 302 is captured as opaqueredirect (type='opaqueredirect', status=0)
-    // rather than being followed to the login page. A 302 from the portal means it accepted the submission.
-    try {
-      const resp = await fetch(window.location.href, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: fieldsStr,
-        credentials: 'include',
-        redirect: 'manual',
-      });
-      let responsePreview = '';
-      // For opaqueredirect (status=0), we can't read the body — but that's a success signal
-      if (resp.type !== 'opaqueredirect') {
-        responsePreview = await resp.text().catch(() => '').then(t => t.substring(0, 300));
-      }
-      return {
-        status: resp.status,
-        type: resp.type,
-        url: resp.url,
-        fields: fieldsStr,
-        responsePreview,
-        note: resp.type === 'opaqueredirect' ? '302 redirect intercepted — portal accepted submission' : '',
-      };
-    } catch (e) {
-      return { error: e.message, fields: fieldsStr };
-    }
-  }, { cityItems: isCitySearch ? items : [], hotelItems: isCitySearch ? [] : items, isCityBatch: isCitySearch });
-  console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
-
-  if (fetchResult.type === 'opaqueredirect' || fetchResult.status === 0) {
-    console.log('    ✓ Portal returned 302 redirect — submission accepted');
-  } else if (fetchResult.responsePreview && fetchResult.responsePreview.includes('<title>Login</title>')) {
-    console.error('    ✗ Portal returned login page — session not carried');
-  } else if (fetchResult.status === 200) {
-    console.log('    ✓ POST accepted by portal (200)');
+  const postClickUrl = page.url();
+  if (postClickUrl.includes('status.php') || postClickUrl.includes('index.php')) {
+    console.log('    ✓ Submission accepted — redirected to portal page');
+  } else if (postClickUrl.includes('login') || postClickUrl.includes('Login')) {
+    throw new Error('Session expired after submit — redirected to login');
   }
 
   // Poll for an XLS link that is DIFFERENT from the one we recorded before the search.
