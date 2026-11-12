@@ -489,11 +489,11 @@ async function runBatch(page, batch, downloadDir) {
       // Log available options for debugging
       console.log('rooms[0][type] options:', [...sel.options].map(o => `${JSON.stringify(o.value)}=${o.text}`).join(', '));
       // Try direct value assignment first
-      sel.value = 'dbl';
-      // Also iterate and force-select any option whose value or text contains 'dbl'
+      sel.value = 'DBL';
+      // Also iterate and force-select any option whose value or text contains 'DBL'
       let found = false;
       for (const opt of sel.options) {
-        if (opt.value === 'dbl' || opt.value.toLowerCase().includes('dbl') || opt.text.toLowerCase().includes('dbl')) {
+        if (opt.value === 'DBL' || opt.value.toUpperCase().includes('DBL') || opt.text.toUpperCase().includes('DBL')) {
           opt.selected = true;
           found = true;
         } else {
@@ -710,13 +710,16 @@ async function runBatch(page, batch, downloadDir) {
   console.log(`    🔍 DOM diag: ${JSON.stringify(domDiag, null, 2)}`);
 
   // ── Build POST body from ALL selects (not just inside form) + native fields ─
-  console.log('    → Collecting form state and submitting via XMLHttpRequest…');
-  const fetchResult = await page.evaluate(async () => {
+  // We pass city/hotel names directly from Node (isCitySearch, items) into the evaluate
+  // so we don't depend on Select2 having synced back to the native <select>.
+  console.log('    → Collecting form state and submitting via fetch…');
+  const fetchResult = await page.evaluate(async ({ cityItems, hotelItems, isCityBatch }) => {  // eslint-disable-line
     // Gather ALL selects anywhere in the document
     const params = new URLSearchParams();
 
-    // All named selects
+    // All named selects EXCEPT cityNames[] and hotels[] — we inject those manually below
     for (const sel of document.querySelectorAll('select[name]')) {
+      if (sel.name === 'cityNames[]' || sel.name === 'hotels[]') continue;
       for (const opt of sel.selectedOptions) {
         params.append(sel.name, opt.value);
       }
@@ -732,8 +735,28 @@ async function runBatch(page, batch, downloadDir) {
       if (inp.name && inp.value) params.append(inp.name, inp.value);
     }
 
-    // rooms[0][type] — force 'dbl' regardless of select state (Select2 doesn't sync back reliably)
-    params.set('rooms[0][type]', 'dbl');
+    // Inject city or hotel names directly — option values ARE the city/hotel name strings
+    if (isCityBatch) {
+      for (const city of cityItems) params.append('cityNames[]', city);
+    } else {
+      // For hotel batches: find option values matching hotel names
+      const hotelSel = document.querySelector('select[name="hotels[]"]');
+      if (hotelSel) {
+        for (const opt of hotelSel.options) {
+          const optText = opt.text.trim().toLowerCase();
+          if (hotelItems.some(h => optText.includes(h.split(' - ')[0].trim().toLowerCase()))) {
+            params.append('hotels[]', opt.value);
+          }
+        }
+      }
+      // Fallback: use hotel names directly as values
+      if (!params.has('hotels[]')) {
+        for (const hotel of hotelItems) params.append('hotels[]', hotel);
+      }
+    }
+
+    // rooms[0][type] — force DBL (portal uses uppercase)
+    params.set('rooms[0][type]', 'DBL');
 
     // Submit button value
     params.set('action', 'schedule-search');
@@ -766,7 +789,7 @@ async function runBatch(page, batch, downloadDir) {
     } catch (e) {
       return { error: e.message, fields: fieldsStr };
     }
-  });
+  }, { cityItems: isCitySearch ? items : [], hotelItems: isCitySearch ? [] : items, isCityBatch: isCitySearch });
   console.log(`    📡 Fetch result: ${JSON.stringify(fetchResult, null, 2)}`);
 
   if (fetchResult.type === 'opaqueredirect' || fetchResult.status === 0) {
