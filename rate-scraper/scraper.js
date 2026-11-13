@@ -26,11 +26,12 @@ const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
 // Google Drive folder IDs — fill these in after creating the folders in Drive
 // or run `node setup-drive.js` to create them automatically.
 const DRIVE_FOLDERS = {
-  laghi:    process.env.DRIVE_FOLDER_LAGHI    || '',
-  toscana:  process.env.DRIVE_FOLDER_TOSCANA  || '',
-  sardegna: process.env.DRIVE_FOLDER_SARDEGNA || '',
-  liguria:  process.env.DRIVE_FOLDER_LIGURIA  || '',
-  puglia:   process.env.DRIVE_FOLDER_PUGLIA   || '',
+  laghi:                process.env.DRIVE_FOLDER_LAGHI                || '',
+  laghi_italissimo_3s:  process.env.DRIVE_FOLDER_LAGHI_ITALISSIMO_3S  || '',
+  toscana:              process.env.DRIVE_FOLDER_TOSCANA              || '',
+  sardegna:             process.env.DRIVE_FOLDER_SARDEGNA             || '',
+  liguria:              process.env.DRIVE_FOLDER_LIGURIA              || '',
+  puglia:               process.env.DRIVE_FOLDER_PUGLIA               || '',
 };
 
 // VP 2027 output folder IDs (proposal sheets + stop sale reports land here)
@@ -252,6 +253,26 @@ const SEARCH_BATCHES = [
     hotels: ['AXOLUTE COMFORT - LAKE COMO', 'INVERIGO HOTEL - INVERIGO - COMO', 'REDS RADAELLI - LECCO'],
   },
 
+  // ── LAGHI — Italissimo 3★ ───────────────────────────────────────────────────
+  {
+    destination: 'laghi_italissimo_3s',
+    label: 'Italissimo 3★ — Lake Maggiore',
+    cities: ['LAGO MAGGIORE'],
+    stars: ['3'],
+  },
+  {
+    destination: 'laghi_italissimo_3s',
+    label: 'Italissimo 3★ — Como / Lake Como / Lecco',
+    cities: ['COMO', 'LAGO DI COMO', 'LECCO'],
+    stars: ['3'],
+  },
+  {
+    destination: 'laghi_italissimo_3s',
+    label: 'Italissimo 3★ — Lake Garda',
+    cities: ['LAGO DI GARDA'],
+    stars: ['3'],
+  },
+
   // ── TOSCANA ─────────────────────────────────────────────────────────────────
   {
     destination: 'toscana',
@@ -440,14 +461,17 @@ async function runBatch(page, batch, downloadDir) {
     }
     console.log('    ✓ Set treatment: breakfast');
   } catch (e) { console.warn('    ⚠ Could not set treatment:', e.message); }
-  // stars[] = 4
-  await page.check('input[name="stars[]"][value="4"]').catch(e => console.warn('    ⚠ Could not set stars:', e.message));
+  // stars[] — use batch.stars if specified, otherwise default to ['4']
+  const starValues = Array.isArray(batch.stars) ? batch.stars : ['4'];
+  for (const sv of starValues) {
+    await page.check(`input[name="stars[]"][value="${sv}"]`).catch(e => console.warn(`    ⚠ Could not set stars=${sv}:`, e.message));
+  }
   // checkin / checkout dates
   await page.fill('input[name="checkin"]', '2027-01-01').catch(e => console.warn('    ⚠ Could not set checkin:', e.message));
   await page.fill('input[name="checkout"]', '2027-12-31').catch(e => console.warn('    ⚠ Could not set checkout:', e.message));
   // contract = BESTPRICE
   await page.check('input[name="contract"][value="BESTPRICE"]').catch(e => console.warn('    ⚠ Could not set contract:', e.message));
-  console.log('    ✓ Form fields set: rooms=5, type=dbl, board=breakfast, stars=4, contract=BESTPRICE, 2027-01-01→2027-12-31');
+  console.log(`    ✓ Form fields set: rooms=5, type=dbl, board=breakfast, stars=${starValues.join('+')}, contract=BESTPRICE, 2027-01-01→2027-12-31`);
 
   // ── Step 2b: select cities OR hotels in the appropriate Select2 widget
   // city search  → cityNames[] Select2  (nth(0) = cities)
