@@ -826,6 +826,66 @@ async function runScraper(targetDestination = null, startFrom = 0, endAt = null)
 // GET /health       → health check
 
 const app = express();
+app.use(express.json());
+
+// ─── CORS (ops portal on GitHub Pages calls this) ────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// ─── Scheduled-task toggle endpoints (for the ops portal schedule card) ──────
+const CLAUDE_API_KEY  = process.env.ANTHROPIC_API_KEY || '';
+const CLAUDE_TRIGGERS = [
+  'trig_01JVSTuTJi9nnvRz59RACmG8',  // VP 2027 rate scraper — Sunday 18:00
+  'trig_01Nsdcd48kQABDhkMLE8NpnR',  // VP 2027 package proposals — Monday 07:00
+];
+
+async function claudeTriggerReq(method, path, body) {
+  const res = await fetch(`https://api.anthropic.com${path}`, {
+    method,
+    headers: {
+      'x-api-key':         CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type':      'application/json',
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) throw new Error(`Claude API ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// GET /triggers/status → { triggers: [ {id, name, enabled, next_run_at}, … ] }
+app.get('/triggers/status', async (req, res) => {
+  try {
+    if (!CLAUDE_API_KEY) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured' });
+    const data = await claudeTriggerReq('GET', '/v1/routines?limit=50');
+    const triggers = (data.data || [])
+      .filter(t => CLAUDE_TRIGGERS.includes(t.id))
+      .map(t => ({ id: t.id, name: t.name, enabled: t.enabled, next_run_at: t.next_run_at || null }));
+    res.json({ triggers });
+  } catch (e) {
+    console.error('GET /triggers/status error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /triggers/toggle  { id, enabled }  → { id, enabled }
+app.post('/triggers/toggle', async (req, res) => {
+  try {
+    if (!CLAUDE_API_KEY) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured' });
+    const { id, enabled } = req.body || {};
+    if (!id || !CLAUDE_TRIGGERS.includes(id)) return res.status(400).json({ error: 'unknown trigger id' });
+    const data = await claudeTriggerReq('PATCH', `/v1/routines/${id}`, { enabled: !!enabled });
+    res.json({ id: data.id, enabled: data.enabled });
+  } catch (e) {
+    console.error('POST /triggers/toggle error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.get('/', (req, res) => res.json({
   service: 'BHI Rate Scraper',

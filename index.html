@@ -193,6 +193,53 @@
     font-size: 0.78rem; color: #555; line-height: 1.5;
   }
 
+  /* ── SCHEDULE TOGGLE ── */
+  .schedule-toggle {
+    margin-top: 1rem; padding-top: 0.75rem;
+    border-top: 1px solid var(--faint);
+  }
+  .schedule-toggle-label {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: #aaa; margin-bottom: 0.6rem;
+  }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem; margin-bottom: 0.5rem;
+  }
+  .toggle-name {
+    font-size: 0.75rem; color: var(--ink); line-height: 1.3; flex: 1;
+  }
+  .toggle-name small {
+    display: block; font-family: 'DM Mono', monospace;
+    font-size: 9px; color: #aaa; margin-top: 1px;
+  }
+  .toggle-switch {
+    position: relative; width: 36px; height: 20px; flex-shrink: 0;
+    cursor: pointer;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0; border-radius: 20px;
+    background: var(--faint); transition: background 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--green); }
+  .toggle-thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    transition: transform 0.2s; pointer-events: none;
+  }
+  .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(16px); }
+  .toggle-status {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    width: 44px; text-align: right; flex-shrink: 0;
+    transition: color 0.2s;
+  }
+  .toggle-status.on  { color: var(--green); }
+  .toggle-status.off { color: #aaa; }
+  .toggle-saving { opacity: 0.5; pointer-events: none; }
+
   /* ── FOOTER ── */
   footer {
     padding: 2rem;
@@ -442,20 +489,51 @@
     </div>
   </a>
 
-  <div class="card card-noop">
+  <div class="card card-noop" id="schedule-card">
     <div class="card-top">
       <div class="card-icon icon-green">🤖</div>
-      <span class="status-badge status-live">Automated</span>
+      <span class="status-badge status-live" id="schedule-badge">Automated</span>
     </div>
     <div class="card-name">VP 2027 · Weekly Schedule</div>
-    <div class="card-subtitle">Runs every Sunday + Monday, no action needed</div>
+    <div class="card-subtitle">Runs every Sunday + Monday · toggle below</div>
     <div class="card-desc">
-      <strong>Sunday 18:00</strong> — rate scraper fires for Laghi, Toscana, Sardegna, Liguria. Files land in Operations Shared Drive → Voyage Privé → VP 2027 — Rates.<br><br>
+      <strong>Sunday 18:00</strong> — rate scraper fires for Laghi, Toscana, Sardegna, Liguria + Italissimo 3★. Files land in Operations Shared Drive → VP 2027 — Rates.<br><br>
       <strong>Monday 07:00</strong> — Claude builds package proposals from Sunday's rates, compares vs 2026 pricing (€ + %), and emails summary to info@ and operations@.
     </div>
+
+    <div class="schedule-toggle">
+      <div class="schedule-toggle-label">Schedule control</div>
+
+      <div class="toggle-row" id="row-scraper">
+        <div class="toggle-name">
+          Rate Scraper
+          <small>Sun 18:00 Lisbon · all destinations</small>
+        </div>
+        <label class="toggle-switch" title="Enable / disable rate scraper">
+          <input type="checkbox" id="tog-scraper" onchange="toggleTrigger('trig_01JVSTuTJi9nnvRz59RACmG8', this)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+        <span class="toggle-status off" id="status-scraper">—</span>
+      </div>
+
+      <div class="toggle-row" id="row-proposals">
+        <div class="toggle-name">
+          Proposal Builder
+          <small>Mon 07:00 Lisbon · packages + email</small>
+        </div>
+        <label class="toggle-switch" title="Enable / disable proposal builder">
+          <input type="checkbox" id="tog-proposals" onchange="toggleTrigger('trig_01Nsdcd48kQABDhkMLE8NpnR', this)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+        <span class="toggle-status off" id="status-proposals">—</span>
+      </div>
+    </div>
+
     <div class="card-footer">
       <span class="card-url">Scheduled tasks · claude.ai</span>
-      <span class="card-cta" style="color:#aaa;">Fully automatic</span>
+      <span class="card-cta" style="color:#aaa;" id="schedule-last">Loading…</span>
     </div>
   </div>
 
@@ -535,5 +613,88 @@
   <span>Last updated Nov 2026 · Not for external distribution</span>
 </footer>
 
+<script>
+// ── Schedule toggle — calls the BHI tools scraper proxy endpoint ─────────────
+// The scraper app at bhi-tools-production proxies toggle calls to Claude API
+// so we don't need to embed an API key in this static page.
+
+const TRIGGERS = {
+  'trig_01JVSTuTJi9nnvRz59RACmG8': { tog: 'tog-scraper',   status: 'status-scraper'   },
+  'trig_01Nsdcd48kQABDhkMLE8NpnR': { tog: 'tog-proposals', status: 'status-proposals' },
+};
+
+function setToggleUI(togId, statusId, enabled) {
+  const cb  = document.getElementById(togId);
+  const lbl = document.getElementById(statusId);
+  if (!cb || !lbl) return;
+  cb.checked = enabled;
+  lbl.textContent = enabled ? 'ON' : 'OFF';
+  lbl.className = 'toggle-status ' + (enabled ? 'on' : 'off');
+}
+
+function updateBadge() {
+  const scraperOn   = document.getElementById('tog-scraper')?.checked;
+  const proposalsOn = document.getElementById('tog-proposals')?.checked;
+  const badge = document.getElementById('schedule-badge');
+  const last  = document.getElementById('schedule-last');
+  if (!badge) return;
+  if (scraperOn && proposalsOn) {
+    badge.textContent = 'Automated'; badge.className = 'status-badge status-live';
+    last.textContent = 'Fully automatic';
+  } else if (!scraperOn && !proposalsOn) {
+    badge.textContent = 'Paused'; badge.className = 'status-badge status-paused';
+    last.textContent = 'Both paused';
+  } else {
+    badge.textContent = 'Partial'; badge.className = 'status-badge status-beta';
+    last.textContent = scraperOn ? 'Scraper only' : 'Proposals only';
+  }
+}
+
+async function loadTriggerStates() {
+  try {
+    const res  = await fetch('https://bhi-tools-production.up.railway.app/triggers/status');
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json(); // { triggers: [ {id, enabled}, ... ] }
+    for (const t of data.triggers) {
+      const cfg = TRIGGERS[t.id];
+      if (cfg) setToggleUI(cfg.tog, cfg.status, t.enabled);
+    }
+  } catch (e) {
+    // Fallback: assume both on (they were on when this page was last deployed)
+    setToggleUI('tog-scraper',   'status-scraper',   true);
+    setToggleUI('tog-proposals', 'status-proposals', true);
+    document.getElementById('schedule-last').textContent = 'Status unavailable';
+  }
+  updateBadge();
+}
+
+async function toggleTrigger(triggerId, checkbox) {
+  const cfg = TRIGGERS[triggerId];
+  if (!cfg) return;
+  const row = document.getElementById('row-' + (cfg.tog === 'tog-scraper' ? 'scraper' : 'proposals'));
+  row?.classList.add('toggle-saving');
+
+  try {
+    const res = await fetch('https://bhi-tools-production.up.railway.app/triggers/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: triggerId, enabled: checkbox.checked }),
+    });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    setToggleUI(cfg.tog, cfg.status, data.enabled);
+  } catch (e) {
+    // Revert on error
+    checkbox.checked = !checkbox.checked;
+    setToggleUI(cfg.tog, cfg.status, checkbox.checked);
+    alert('Could not update schedule — check the scraper app is running.');
+  } finally {
+    row?.classList.remove('toggle-saving');
+    updateBadge();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadTriggerStates);
+</script>
 </body>
 </html>
