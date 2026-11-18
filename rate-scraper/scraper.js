@@ -395,6 +395,7 @@ async function login(page) {
 }
 
 async function runBatch(page, batch, downloadDir) {
+  batch._chosen = new Set(); // options picked in this run (reset: batches are module-level objects)
   const _items = batch.cities || batch.hotels || [];
   console.log(`\n  🔍  ${batch.label} (${_items.length} ${batch.cities ? 'cit' + (_items.length > 1 ? 'ies' : 'y') : 'hotel' + (_items.length > 1 ? 's' : '')})`);
 
@@ -507,31 +508,35 @@ async function runBatch(page, batch, downloadDir) {
     const targetParts = targetLower.split(' - ').map(s => s.trim());
     let matched = false;
 
-    // Primary match: all parts of the name appear in the option text
-    for (const opt of options) {
-      const text = (await opt.textContent() || '').trim();
-      const textLower = text.toLowerCase();
-      if (targetParts.every(part => textLower.includes(part))) {
-        await opt.click();
-        matched = true;
-        selectedCount++;
-        console.log(`    ✓ Matched: "${text}"`);
-        break;
-      }
+    // Option labels look like "TOWN - PROVINCE" (cities) or "HOTEL - TOWN - PROVINCE".
+    // A plain "contains" match picks the wrong entry (e.g. "CAGLIARI" → "ARBUS - CAGLIARI",
+    // "SIENA" → "ASCIANO - SIENA", "OLBIA" → "ARZACHENA - OLBIA-TEMPIO"), so rank candidates:
+    //   1. exact label   2. first segment equals target   3. label starts with target
+    //   4. all parts contained (legacy)   5. first part contained (legacy fallback)
+    // Options already chosen in this batch are skipped so one town can't be picked twice.
+    const optTexts = [];
+    for (const opt of options) optTexts.push((await opt.textContent() || '').trim());
+    const norm = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
+    const tgt = norm(itemName);
+    const tgtFirst = targetParts[0];
+    const rankers = [
+      t => norm(t) === tgt,
+      t => norm(t).split(' - ')[0] === tgtFirst,
+      t => norm(t).startsWith(tgtFirst),
+      t => targetParts.every(part => norm(t).includes(part)),
+      t => norm(t).includes(tgtFirst),
+    ];
+    let pickedIdx = -1, pickedRank = -1;
+    for (let r = 0; r < rankers.length && pickedIdx < 0; r++) {
+      pickedIdx = optTexts.findIndex(t => rankers[r](t) && !batch._chosen.has(norm(t)));
+      if (pickedIdx >= 0) pickedRank = r;
     }
-    // Fallback: first part only
-    if (!matched) {
-      for (const opt of options) {
-        const text = (await opt.textContent() || '').trim();
-        const textLower = text.toLowerCase();
-        if (textLower.includes(targetParts[0])) {
-          await opt.click();
-          matched = true;
-          selectedCount++;
-          console.log(`    ⚠ Partial match: "${text}"`);
-          break;
-        }
-      }
+    if (pickedIdx >= 0) {
+      await options[pickedIdx].click();
+      batch._chosen.add(norm(optTexts[pickedIdx]));
+      matched = true;
+      selectedCount++;
+      console.log(`    ${pickedRank <= 2 ? '✓' : '⚠'} Matched (rank ${pickedRank + 1}): "${optTexts[pickedIdx]}"  [candidates: ${optTexts.slice(0, 8).join(' | ')}]`);
     }
     if (!matched) {
       console.warn(`    ✗ No match for: ${itemName} — skipping`);
