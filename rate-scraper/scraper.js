@@ -304,6 +304,11 @@ const SEARCH_BATCHES = [
     label: 'Volterra',
     cities: ['VOLTERRA'],
   },
+  {
+    destination: 'toscana',
+    label: 'Pisa / Pistoia / Montepulciano',
+    cities: ['PISA', 'PISTOIA', 'MONTEPULCIANO'],
+  },
 
   // ── SARDEGNA ────────────────────────────────────────────────────────────────
   {
