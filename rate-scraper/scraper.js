@@ -40,7 +40,7 @@ const VP_FOLDERS = {
   toscana:  process.env.VP_2027_FOLDER_TOSCANA  || '10b7Ke_7sGLz0yjTScOtrQzGm2_iscaRh',
   sardegna: process.env.VP_2027_FOLDER_SARDEGNA || '1xvAkRemu8x0ecTGPwWMPJPGhZT6KWfUV',
   liguria:  process.env.VP_2027_FOLDER_LIGURIA  || '1BRuvBcK_uvDtl-gRPL4pAn7h7gKJYAqS',
-  puglia:   process.env.VP_2027_FOLDER_PUGLIA   || '',
+  puglia:   process.env.VP_2027_FOLDER_PUGLIA   || '1j9DattVahukeWPNvUB1C3DyGpHdG591j',
 };
 
 // Source spreadsheet IDs used by the proposal builder (populated after each scrape)
@@ -216,8 +216,10 @@ const PROPOSAL_SS_IDS = {
     '1IYZ8XT_T8zJ2CUA95dHPa_1yndA3eKNW',
     '1Ruog76PpZRVZZ9xv7_myz3lmnRl6505a',
   ],
-  puglia:   [],
+  puglia:   process.env.DRIVE_FOLDER_PUGLIA   || '',
 };
+
+// VP 2027 output folder IDs (proposal sheets + stop sale reports land here)
 
 // ─── Search batches (max 3 cities OR 3 hotels per search) ────────────────────
 // Each entry has either:
@@ -342,6 +344,31 @@ const SEARCH_BATCHES = [
     destination: 'liguria',
     label: 'Chiavari / Rapallo / Santa Margherita Ligure',
     cities: ['CHIAVARI', 'RAPALLO', 'SANTA MARGHERITA LIGURE'],
+  },
+
+  // ── PUGLIA & MATERA ─────────────────────────────────────────────────────────
+  // 5-nts: 2 nts Matera + 3 nts Central Puglia
+  // 7-nts: 2 nts Matera + 3 nts Central Puglia + 2 nts Lecce
+  // 9-nts: 2 nts Matera + 4 nts Central Puglia + 3 nts Lecce
+  {
+    destination: 'puglia',
+    label: 'Matera',
+    cities: ['MATERA'],
+  },
+  {
+    destination: 'puglia',
+    label: 'Central Puglia — Conversano / Alberobello / Castellana Grotte',
+    cities: ['CONVERSANO', 'ALBEROBELLO', 'CASTELLANA GROTTE'],
+  },
+  {
+    destination: 'puglia',
+    label: 'Central Puglia — Giovinazzo / Bari',
+    cities: ['GIOVINAZZO', 'BARI'],
+  },
+  {
+    destination: 'puglia',
+    label: 'Lecce',
+    cities: ['LECCE'],
   },
 ];
 
