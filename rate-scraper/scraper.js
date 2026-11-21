@@ -32,6 +32,7 @@ const DRIVE_FOLDERS = {
   sardegna:             process.env.DRIVE_FOLDER_SARDEGNA             || '',
   liguria:              process.env.DRIVE_FOLDER_LIGURIA              || '',
   puglia:               process.env.DRIVE_FOLDER_PUGLIA               || '',
+  puglia_5s:            process.env.DRIVE_FOLDER_PUGLIA_5S            || '',
 };
 
 // VP 2027 output folder IDs (proposal sheets + stop sale reports land here)
@@ -40,7 +41,8 @@ const VP_FOLDERS = {
   toscana:  process.env.VP_2027_FOLDER_TOSCANA  || '10b7Ke_7sGLz0yjTScOtrQzGm2_iscaRh',
   sardegna: process.env.VP_2027_FOLDER_SARDEGNA || '1xvAkRemu8x0ecTGPwWMPJPGhZT6KWfUV',
   liguria:  process.env.VP_2027_FOLDER_LIGURIA  || '1BRuvBcK_uvDtl-gRPL4pAn7h7gKJYAqS',
-  puglia:   process.env.VP_2027_FOLDER_PUGLIA   || '1j9DattVahukeWPNvUB1C3DyGpHdG591j',
+  puglia:    process.env.VP_2027_FOLDER_PUGLIA    || '1j9DattVahukeWPNvUB1C3DyGpHdG591j',
+  puglia_5s: process.env.VP_2027_FOLDER_PUGLIA_5S || '1tcF_wXrUP8MaKU_4efFlD4x6QinUsqf2',
 };
 
 // Source spreadsheet IDs used by the proposal builder (populated after each scrape)
@@ -346,7 +348,7 @@ const SEARCH_BATCHES = [
     cities: ['CHIAVARI', 'RAPALLO', 'SANTA MARGHERITA LIGURE'],
   },
 
-  // ── PUGLIA & MATERA ─────────────────────────────────────────────────────────
+  // ── PUGLIA & MATERA 4★ ──────────────────────────────────────────────────────
   // 5-nts: 2 nts Matera + 3 nts Central Puglia
   // 7-nts: 2 nts Matera + 3 nts Central Puglia + 2 nts Lecce
   // 9-nts: 2 nts Matera + 4 nts Central Puglia + 3 nts Lecce
@@ -369,6 +371,28 @@ const SEARCH_BATCHES = [
     destination: 'puglia',
     label: 'Lecce',
     cities: ['LECCE'],
+  },
+
+  // ── PUGLIA & MATERA 5★ ──────────────────────────────────────────────────────
+  // 5-nts: 2 nts Matera + 3 nts Central Puglia (Polignano a Mare / Fasano / Ostuni)
+  // 7-nts: 2 nts Matera + 3 nts Central Puglia + 2 nts Lecce / Gallipoli
+  {
+    destination: 'puglia_5s',
+    label: 'Matera 5★',
+    cities: ['MATERA'],
+    stars: ['5'],
+  },
+  {
+    destination: 'puglia_5s',
+    label: 'Central Puglia 5★ — Polignano a Mare / Fasano / Ostuni',
+    cities: ['POLIGNANO A MARE', 'FASANO', 'OSTUNI'],
+    stars: ['5'],
+  },
+  {
+    destination: 'puglia_5s',
+    label: 'Lecce / Gallipoli 5★',
+    cities: ['LECCE', 'GALLIPOLI'],
+    stars: ['5'],
   },
 ];
 
@@ -1319,7 +1343,7 @@ app.get('/run/:destination?', async (req, res) => {
       const saleName = req.query.sale || null;  // e.g. ?sale=VP+Flash+Jan+2027
 
       // Destinations to process (run for the requested dest, or all if unspecified)
-      const destinations = dest ? [dest] : ['laghi','toscana','sardegna','liguria','puglia'];
+      const destinations = dest ? [dest] : ['laghi','toscana','sardegna','liguria','puglia','puglia_5s'];
 
       for (const d of destinations) {
         const vpFolder   = VP_FOLDERS[d];
