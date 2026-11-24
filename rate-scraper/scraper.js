@@ -225,9 +225,9 @@ const PROPOSAL_SS_IDS = {
     '1_rlMfyVSHLY1WZRODQQDnlJop6ThFNhX',  // Lecce (4★) 2026-11-24
   ],
   puglia_5s: [
-    '1wLYULTRobEsBGBpJLHpqUwzbtl1SK-Wg',  // Matera (5★) 2026-11-24
-    // Central Puglia (5★) — pending
-    // Lecce-Gallipoli (5★) — pending
+    '1Qium_y_g8JOaJlwtdQr8i7aihodStf9a',  // Matera (5★) 2026-11-24
+    '187M01mAj-1D5HSqw8AprcUgk3WMZsZxJ',  // Central Puglia – Polignano/Fasano/Ostuni (5★) 2026-11-24
+    '1VamFpkU5m6kQM_FvY4O9c9ZMc3tZ9nVK',  // Lecce-Gallipoli (5★) 2026-11-24
   ],
 };
 
