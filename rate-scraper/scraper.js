@@ -218,7 +218,17 @@ const PROPOSAL_SS_IDS = {
     '1IYZ8XT_T8zJ2CUA95dHPa_1yndA3eKNW',
     '1Ruog76PpZRVZZ9xv7_myz3lmnRl6505a',
   ],
-  puglia:   process.env.DRIVE_FOLDER_PUGLIA   || '',
+  puglia: [
+    '1DJVaJU1Jabgqa1SgGXB_xpOgD6YMTEHv',  // Matera (4★) 2026-11-24
+    '1SEUZV2QT_wBqYMJgONt4-8-aP-QfjFVd',  // Central Puglia – Conversano/Alberobello/Castellana Grotte (4★) 2026-11-24
+    '1CTVXULINy9dofRIoFzutknK3uT7-unnW',  // Central Puglia – Giovinazzo/Bari (4★) 2026-11-24
+    '1_rlMfyVSHLY1WZRODQQDnlJop6ThFNhX',  // Lecce (4★) 2026-11-24
+  ],
+  puglia_5s: [
+    '1wLYULTRobEsBGBpJLHpqUwzbtl1SK-Wg',  // Matera (5★) 2026-11-24
+    // Central Puglia (5★) — pending
+    // Lecce-Gallipoli (5★) — pending
+  ],
 };
 
 // VP 2027 output folder IDs (proposal sheets + stop sale reports land here)
