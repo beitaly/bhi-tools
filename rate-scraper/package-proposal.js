@@ -1314,7 +1314,10 @@ async function buildPackageProposal(destination, driveSpreadsheetIds, proposalFo
       return buildLiguriaProposal(ids, proposalFolderId, runDate, saleName);
 
     case 'puglia':
-      return buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, saleName);
+      return buildPugliaProposal(ids, proposalFolderId, runDate, saleName);
+
+    case 'puglia_5s':
+      return buildPugliaProposal(ids, proposalFolderId, runDate, saleName);
 
     default:
       console.log(`  ℹ  Package proposal not implemented for '${destination}' — skipping.`);
