@@ -122,8 +122,15 @@ async function parseXlsTab(xlsBuffer, tabIndex) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(xlsBuffer);
 
-  // tabIndex is 1-based sheet order (9 = "7 nts", 10 = "9 nts", 11 = "12 nts")
-  const ws = wb.worksheets[tabIndex - 1];
+  // tabIndex is either a 1-based sheet number OR a sheet name string.
+  // Using a name is preferred for robustness — 5★ XLS files have a variable
+  // number of hotel tabs before '7 nts'/'9 nts'/'12 nts', so a fixed index breaks.
+  let ws;
+  if (typeof tabIndex === 'string') {
+    ws = wb.getWorksheet(tabIndex);
+  } else {
+    ws = wb.worksheets[tabIndex - 1];
+  }
   if (!ws) return null;
 
   // Helper: unwrap exceljs cell values — formulas return { formula, result }
@@ -1231,13 +1238,14 @@ async function buildLiguriaProposal(driveSpreadsheetIds, proposalFolderId, runDa
 // Experiences (all durations): wine tasting in a renowned winery near Matera €18pp
 //                              + cheese making demonstration + tasting lunch in a masseria €40pp
 //                              = €58pp total, same for all durations.
-// XLS tabs available: '7 nts' (tab 7), '9 nts' (tab 8), '12 nts' (tab 9).
-// 5nts rates: derived from 7nts tab per-night rates × 5.
+// XLS tabs looked up by NAME (not index) because 5★ files have a variable number
+// of hotel tabs before the summary tabs, making a fixed positional index unreliable.
+// 5nts rates: derived from '7 nts' tab per-night rates × 5.
 const PUGLIA_PACKAGES = {
-  nts5:  { nts: 5,  label: '5 Nights',  expTotal: 58, xlsTab: 7, scaleNts: 5  },
-  nts7:  { nts: 7,  label: '7 Nights',  expTotal: 58, xlsTab: 7, scaleNts: 7  },
-  nts9:  { nts: 9,  label: '9 Nights',  expTotal: 58, xlsTab: 8, scaleNts: 9  },
-  nts12: { nts: 12, label: '12 Nights', expTotal: 58, xlsTab: 9, scaleNts: 12 },
+  nts5:  { nts: 5,  label: '5 Nights',  expTotal: 58, xlsTab: '7 nts',  scaleNts: 5  },
+  nts7:  { nts: 7,  label: '7 Nights',  expTotal: 58, xlsTab: '7 nts',  scaleNts: 7  },
+  nts9:  { nts: 9,  label: '9 Nights',  expTotal: 58, xlsTab: '9 nts',  scaleNts: 9  },
+  nts12: { nts: 12, label: '12 Nights', expTotal: 58, xlsTab: '12 nts', scaleNts: 12 },
 };
 
 // ─── PUGLIA 2026 VP actuals ───────────────────────────────────────────────────
@@ -1259,8 +1267,7 @@ async function buildPugliaProposal(driveFileIds, proposalFolderId, runDate, sale
   // Puglia active months: Apr–Oct
   const pugliaMonths = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
 
-  // Unique XLS tabs needed (avoid duplicate downloads)
-  // Tab indices in Puglia XLS: 7='7 nts', 8='9 nts', 9='12 nts'
+  // Unique XLS tab names needed (avoid duplicate downloads)
   const uniqueTabs = [...new Set(Object.values(PUGLIA_PACKAGES).map(p => p.xlsTab))];
   console.log('  → Reading scraped XLS files from Drive…');
   const tabRates = {};
