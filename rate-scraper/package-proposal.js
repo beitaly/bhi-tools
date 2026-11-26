@@ -1227,30 +1227,50 @@ async function buildLiguriaProposal(driveSpreadsheetIds, proposalFolderId, runDa
 }
 
 // ─── PUGLIA packages ──────────────────────────────────────────────────────────
-// Puglia: 7nts and 10nts packages.
-// Experiences (TBD — placeholders until VP contract is confirmed):
-//   7nts:  Alberobello trulli tour €40 + olive oil tasting €25 = €65
-//   10nts: 7nts experiences + Lecce walking tour €30 + masseria dinner €45 = €140
+// Puglia: 5, 7, 9, 12-night packages.
+// Experiences (all durations): wine tasting in a renowned winery near Matera €18pp
+//                              + cheese making demonstration + tasting lunch in a masseria €40pp
+//                              = €58pp total, same for all durations.
+// XLS tabs available: '7 nts' (tab 7), '9 nts' (tab 8), '12 nts' (tab 9).
+// 5nts rates: derived from 7nts tab per-night rates × 5.
 const PUGLIA_PACKAGES = {
-  nts7:  { nts: 7,  label: '7 Nights', expTotal: 65  },
-  nts10: { nts: 10, label: '10 Nights', expTotal: 140 },
+  nts5:  { nts: 5,  label: '5 Nights',  expTotal: 58, xlsTab: 7, scaleNts: 5  },
+  nts7:  { nts: 7,  label: '7 Nights',  expTotal: 58, xlsTab: 7, scaleNts: 7  },
+  nts9:  { nts: 9,  label: '9 Nights',  expTotal: 58, xlsTab: 8, scaleNts: 9  },
+  nts12: { nts: 12, label: '12 Nights', expTotal: 58, xlsTab: 9, scaleNts: 12 },
 };
 
 // ─── PUGLIA 2026 VP actuals ───────────────────────────────────────────────────
 // No 2026 VP Puglia contract exists yet — set to null until confirmed.
 const VP2026_PUGLIA = {
+  nts5:  { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
   nts7:  { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
-  nts10: { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
+  nts9:  { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
+  nts12: { Apr: null, May: null, Jun: null, Jul: null, Aug: null, Sep: null, Oct: null },
 };
 
 // ─── PUGLIA builder ───────────────────────────────────────────────────────────
 
-async function buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, saleName) {
-  console.log('\n📦  Building Puglia VP package proposal…');
+async function buildPugliaProposal(driveFileIds, proposalFolderId, runDate, saleName, tier) {
+  const tierLabel = tier === '5s' ? '5★' : '4★';
+  console.log(`\n📦  Building Puglia VP package proposal (${tierLabel})…`);
   const salePrefix = saleName ? `${saleName} — ` : '';
 
-  // Puglia active months (assumed): Apr, May, Jun, Jul, Aug, Sep, Oct
+  // Puglia active months: Apr–Oct
   const pugliaMonths = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+
+  // Unique XLS tabs needed (avoid duplicate downloads)
+  // Tab indices in Puglia XLS: 7='7 nts', 8='9 nts', 9='12 nts'
+  const uniqueTabs = [...new Set(Object.values(PUGLIA_PACKAGES).map(p => p.xlsTab))];
+  console.log('  → Reading scraped XLS files from Drive…');
+  const tabRates = {};
+  await Promise.all(
+    uniqueTabs.map(async (tabIdx) => {
+      tabRates[tabIdx] = driveFileIds.length > 0
+        ? await readXlsMediaRates(driveFileIds, tabIdx)
+        : {};
+    })
+  );
 
   const pkgDefs   = {};
   const monthData = {};
@@ -1259,30 +1279,46 @@ async function buildPugliaProposal(sourceSheetId, proposalFolderId, runDate, sal
     pkgDefs[pkgKey]   = { label: pkg.label, expTotal: pkg.expTotal };
     monthData[pkgKey] = {};
 
+    const ratesTable = tabRates[pkg.xlsTab] || {};
+
     for (const month of pugliaMonths) {
       const vp26 = VP2026_PUGLIA[pkgKey]?.[month] ?? null;
+      const r    = ratesTable[month];
 
-      monthData[pkgKey][month] = {
-        min:     null,   // awaiting scraped source sheet
-        blended: null,
-        vp27:    null,
-        vp26,
-      };
+      let minSell = null;
+      let blended = null;
+      let vp27    = null;
+
+      if (r?.avg != null) {
+        // Rates in XLS are per-night; scale to package duration
+        // For 5nts we scale the 7nts-tab per-night rate × 5
+        const perNightAvg = r.avg;
+        const perNightMin = r.min ?? r.avg;
+        const accNetto    = perNightAvg * pkg.scaleNts;
+        const accNettoMin = perNightMin * pkg.scaleNts;
+        minSell = sellPrice(accNettoMin, pkg.expTotal);
+        blended = sellPrice((accNetto + accNettoMin) / 2, pkg.expTotal);
+        vp27    = blended;
+      }
+
+      monthData[pkgKey][month] = { min: minSell, blended, vp27, vp26 };
     }
   }
 
-  const sheetTitle = `${salePrefix}VP 2027 — Puglia — Package Proposal — ${runDate}`;
+  const sheetTitle = `${salePrefix}VP 2027 — Puglia — Package Proposal (${tierLabel}) — ${runDate}`;
   return buildProposalSheet({
     title:        sheetTitle,
     pkgDefs,
     monthData,
     folderId:     proposalFolderId,
     runDate,
-    tier:         '',
-    variantLabel: 'Standard (4★)',
-    notes:        'SCAFFOLD — VP 2026 contract not yet finalised  |  ' +
-                  'MIN/Blended/VP 2027: awaiting scrape + source sheet  |  ' +
-                  'Experience costs: 7nts €65pp (trulli tour + olive oil), 10nts €140pp (+Lecce tour + masseria dinner)',
+    tier:         tierLabel,
+    variantLabel: `Standard (${tierLabel})`,
+    notes:        'MIN = min netto pp × (1 + 6%×1.23)  |  ' +
+                  'Blended = (AVG+MIN)/2 pp × (1 + 6%×1.23)  |  ' +
+                  'VP 2027 = Blended sell (no 2026 contract)  |  ' +
+                  'Experiences (all durations): wine tasting near Matera €18pp + ' +
+                  'cheese making & tasting lunch in masseria €40pp = €58pp total',
   });
 }
 
@@ -1314,10 +1350,10 @@ async function buildPackageProposal(destination, driveSpreadsheetIds, proposalFo
       return buildLiguriaProposal(ids, proposalFolderId, runDate, saleName);
 
     case 'puglia':
-      return buildPugliaProposal(ids, proposalFolderId, runDate, saleName);
+      return buildPugliaProposal(ids, proposalFolderId, runDate, saleName, '4s');
 
     case 'puglia_5s':
-      return buildPugliaProposal(ids, proposalFolderId, runDate, saleName);
+      return buildPugliaProposal(ids, proposalFolderId, runDate, saleName, '5s');
 
     default:
       console.log(`  ℹ  Package proposal not implemented for '${destination}' — skipping.`);
